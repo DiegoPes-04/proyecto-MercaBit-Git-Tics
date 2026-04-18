@@ -10,13 +10,13 @@ const db = getFirestore(app);
 setLogLevel("debug");
 
 // Función para registrar un nuevo usuario
-export const registerUser = async (name, cedula, email, password) => {
+export const registerUser = async (name, telefono, email, password) => {
   try {
-    if (!name || !cedula || !email || !password) {
+    if (!name || !telefono || !email || !password) {
       return { success: false, message: "Por favor completa todos los campos" };
     }
 
-    console.log("Datos enviados a Firebase:", { name, cedula, email });
+    console.log("Datos enviados a Firebase:", { name, telefono, email });
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -28,7 +28,7 @@ export const registerUser = async (name, cedula, email, password) => {
     const userDocRef = doc(db, "users", user.uid);
     await setDoc(userDocRef, {
       name: String(name),
-      cedula: String(cedula),
+      telefono: String(telefono),
       email: String(email),
       saldo: 10000000, // Saldo inicial por defecto
       createdAt: new Date(),
