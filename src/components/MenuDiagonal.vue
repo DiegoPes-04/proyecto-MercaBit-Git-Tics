@@ -2,9 +2,18 @@
   <ion-menu content-id="main-content" side="start" :disabled="false">
     <ion-content class="menu-content">
       <div class="menu-header">
-        <img src="/img/Logo.png" alt="Logo" class="company-logo" />
-        <h2 class="logo">Merca<span class="highlight">Bit</span></h2>
+        <!-- Ícono de marca consistente con el resto de la app -->
+        <div class="brand-icon">
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="4" width="11" height="11" rx="2" fill="white"/>
+            <rect x="21" y="4" width="11" height="11" rx="2" fill="white"/>
+            <rect x="4" y="21" width="11" height="11" rx="2" fill="white"/>
+            <rect x="21" y="21" width="11" height="11" rx="2" fill="white"/>
+          </svg>
+        </div>
+        <h2 class="logo">MercaBit</h2>
       </div>
+
       <ion-list>
         <ion-menu-toggle auto-hide="false">
           <ion-item router-link="/home" router-direction="root">
@@ -27,7 +36,6 @@
             <ion-icon :icon="checkmarkCircleOutline" slot-v="start" />
             <ion-label>Ofertas realizadas</ion-label>
           </ion-item>
-
           <ion-item router-link="/agregar-producto" router-direction="root">
             <ion-icon :icon="addOutline" slot-v="start" />
             <ion-label>Agregar producto</ion-label>
@@ -93,31 +101,24 @@ import {
 } from 'ionicons/icons';
 import { logoutUser } from '@/services/authService';
 import { useRouter } from 'vue-router';
-
 import { ref, onMounted, onUnmounted } from 'vue';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 
 const router = useRouter();
 const userName = ref('Usuario');
-const userPhoto = ref('/img/User.jpg'); // Default photo
-let unsubscribeUserListener = null; // Para manejar la suscripción a Firestore
+const userPhoto = ref('/img/User.jpg');
+let unsubscribeUserListener = null;
 
-// Listener de cambios en tiempo real para el usuario
 const setupUserDataListener = (uid) => {
   try {
     const db = getFirestore();
     const userRef = doc(db, 'users', uid);
-    
-    // Usar onSnapshot en lugar de getDoc para escuchar cambios en tiempo real
     unsubscribeUserListener = onSnapshot(userRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
         userName.value = data.name;
-        // Añadimos un timestamp a la URL para evitar caché del navegador
-        // cuando la URL es la misma pero la imagen ha cambiado
         if (data.photoURL) {
-          // Si la URL ya contiene un parámetro de consulta, añadimos & en lugar de ?
           const separator = data.photoURL.includes('?') ? '&' : '?';
           userPhoto.value = `${data.photoURL}${separator}t=${Date.now()}`;
         }
@@ -136,16 +137,13 @@ onMounted(() => {
     if (user) {
       setupUserDataListener(user.uid);
     } else {
-      // Resetear valores si no hay usuario
       userName.value = 'Usuario';
       userPhoto.value = '/img/User.jpg';
     }
   });
 });
 
-// Limpieza del listener cuando el componente se desmonta
 onUnmounted(() => {
-  // Cancelar la suscripción a Firestore cuando el componente se desmonta
   if (unsubscribeUserListener) {
     unsubscribeUserListener();
   }
@@ -161,7 +159,6 @@ const logout = async () => {
 };
 </script>
 
-
 <style scoped>
 .menu-content {
   --background: #000;
@@ -171,48 +168,36 @@ const logout = async () => {
   height: 100%;
 }
 
-/* Contenedor flex para el logo y el texto */
+/* ── Header con ícono y nombre ──────────────────── */
 .menu-header {
   display: flex;
   align-items: center;
-  /* Alinea los elementos verticalmente */
   justify-content: center;
-  /* Centra horizontalmente */
-  flex-wrap: nowrap;
-  /* Evita que el texto salte a otra línea */
-  padding: 20px 10px;
+  gap: 10px;
+  padding: 24px 16px 20px;
 }
 
-/* Imagen del logo con altura fija */
-.company-logo {
-  width: 40px;
-  /* Ajusta según necesites */
-  height: auto;
-  max-height: 40px;
-  /* Para evitar que crezca demasiado */
-  display: block;
-  margin-right: 10px;
-  /* Espacio entre el logo y el texto */
-  background: none;
-  mix-blend-mode: normal;
-  /* Evita que el logo se mezcle con el fondo */
+.brand-icon {
+  width: 44px;
+  height: 44px;
+  background: #1A1D2E;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
 }
 
-/* Estilos para el texto "MercaBit" */
 .logo {
   color: white;
   font-size: 1.5rem;
   font-weight: bold;
   white-space: nowrap;
-  /* Evita que se divida en dos líneas */
+  margin: 0;
 }
 
-.highlight {
-  color: #a64aff;
-  /* Color morado para "Bit" */
-}
-
-/* Estilos generales del menú */
+/* ── Items del menú ─────────────────────────────── */
 ion-item {
   --background: transparent;
   color: white;
@@ -223,42 +208,34 @@ ion-icon {
   color: white;
 }
 
+/* ── Sección de usuario ─────────────────────────── */
 .user-section {
   text-align: center;
   padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Centra horizontalmente */
   justify-content: center;
-  /* Centra verticalmente si es necesario */
   width: 100%;
 }
 
 .user-avatar {
   width: 50px;
-  /* Ajusta el tamaño de la imagen si es necesario */
   height: 50px;
   border-radius: 50%;
   border: 2px solid white;
-  margin-right: 10px;
-  /* Espacio entre la imagen y el texto */
-  object-fit: cover; /* Para que la imagen se ajuste correctamente */
+  margin-bottom: 8px;
+  object-fit: cover;
 }
 
 .user-name {
   font-size: 1.2rem;
   color: white;
+  margin: 0;
 }
 
-
-.user-name {
-  font-size: 1.2rem;
-  color: white;
-}
-
+/* ── Botón cerrar sesión ────────────────────────── */
 .logout-button {
-  margin-top: 10px;
   --background: transparent;
   --color: white;
   --border-color: white;
@@ -270,7 +247,6 @@ ion-icon {
   align-items: center;
   justify-content: center;
   margin: 10px auto;
-  /* Centra el botón horizontalmente */
 }
 
 .logout-button ion-icon {
