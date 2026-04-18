@@ -12,9 +12,19 @@
     <ion-content class="ion-padding">
       <div class="container">
         <ion-card class="login-card">
+
+          <!-- Ícono de marca consistente con el resto de la app -->
           <div class="logo">
-            <img src="/img/Logo.png" alt="Logo">
+            <div class="brand-icon">
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="11" height="11" rx="2" fill="white"/>
+                <rect x="21" y="4" width="11" height="11" rx="2" fill="white"/>
+                <rect x="4" y="21" width="11" height="11" rx="2" fill="white"/>
+                <rect x="21" y="21" width="11" height="11" rx="2" fill="white"/>
+              </svg>
+            </div>
           </div>
+
           <h2 class="textTitulo">Merca<span class="highlight">Bit</span></h2>
           <ion-text class="version-text">Versión 1.0</ion-text>
           <ion-text class="footer-text">Copyright ® 2025 MercaBit</ion-text>
@@ -44,7 +54,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 const goToTermCond = () => {
-  router.push('/terminos-condiciones'); // ajusta la ruta según la que tengas definida
+  router.push('/terminos-condiciones');
 };
 </script>
 
@@ -68,9 +78,26 @@ const goToTermCond = () => {
   margin: auto;
 }
 
+/* ── Ícono de marca ─────────────────────────────── */
+.logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.brand-icon {
+  width: 72px;
+  height: 72px;
+  background: #1A1D2E;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .version-text {
   display: block;
-  margin-bottom: 30px; 
+  margin-bottom: 30px;
   color: #444;
   font-size: 0.95rem;
 }
@@ -108,10 +135,5 @@ ion-button {
 
 .highlight {
   color: #a64aff;
-}
-
-.logo img {
-  width: 120px;
-  height: auto;
 }
 </style>
