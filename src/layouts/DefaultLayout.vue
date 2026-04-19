@@ -1,6 +1,8 @@
 <template>
   <ion-app>
     <MenuDiagonal />
+
+    <!-- Header del layout solo para vistas que NO tienen su propio header -->
     <ion-header v-if="!route.meta.hideLayout">
       <ion-toolbar>
         <ion-buttons slot="start">
@@ -9,13 +11,24 @@
         <ion-title>{{ pageTitle }}</ion-title>
       </ion-toolbar>
     </ion-header>
+
     <ion-router-outlet id="main-content" />
+
+    <!-- Footer del layout solo para vistas que NO tienen su propio footer -->
     <Footer v-if="!route.meta.hideLayout" />
   </ion-app>
 </template>
 
 <script setup>
-import { IonApp, IonHeader, IonToolbar, IonButtons, IonMenuButton, IonTitle, IonRouterOutlet } from '@ionic/vue'
+import {
+  IonApp,
+  IonHeader,
+  IonToolbar,
+  IonButtons,
+  IonMenuButton,
+  IonTitle,
+  IonRouterOutlet
+} from '@ionic/vue'
 import MenuDiagonal from '@/components/MenuDiagonal.vue'
 import Footer from '@/components/Footer.vue'
 import { useRoute } from 'vue-router'
@@ -37,7 +50,12 @@ const pageTitle = computed(() => {
     '/categorias': 'Categorías',
     '/informacion-personal': 'Información Personal',
     '/mis-compras': 'Mis Compras',
+    '/explorar': 'Explorar',
+    '/mi-cuenta': 'Mi Cuenta',
+    '/MisCalificaciones': 'Mis Calificaciones',
+    '/Miscompras': 'Mis Compras',
+    '/ofertas-realizadas': 'Ofertas Realizadas',
   }
-  return titles[route.path] || ''
+  return titles[route.path] || 'MercaBit'
 })
 </script>

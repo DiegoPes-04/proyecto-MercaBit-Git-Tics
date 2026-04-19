@@ -59,27 +59,34 @@ const routes = [
       {
         path: '/notification',
         name: 'Notification',
-        component: () => import('@/views/Notification.vue')
+        component: () => import('@/views/Notification.vue'),
+        meta: { requiresAuth: true, hideLayout: true }
       },
       {
         path: '/accerca-de-la-app',
         component: () => import('@/views/AcercaDeLaApp.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, hideLayout: true  },
       },
       {
         path: '/terminos-condiciones',
-        component: () => import('@/views/Terminos-condiciones.vue'),
+        component: () => import('@/views/Terminos-condiciones.vue'),  
+        meta: { hideLayout: true }
       },
       {
         path: 'producto/:id',
         name: 'DetalleProducto',
         component: () => import('@/views/DetalleProducto.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, hideLayout: true  }
+      },
+      {
+        path: '/oferta-exitosa',
+        component: () => import('@/views/OfertaExitosa.vue'),
+        meta: { requiresAuth: true, hideLayout: true }
       },
       {
         path: '/mi-cuenta',
         component: () => import('@/views/MiCuenta.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, hideLayout: true },
       },
       {
       
@@ -90,25 +97,34 @@ const routes = [
 
         path: '/Miscompras',
         name: 'MisCompras',
-        component: () => import('@/views/MisCompras.vue')
+        component: () => import('@/views/MisCompras.vue'),
+        meta: { requiresAuth: true,  }
       },
       {
         path: '/ofertas-realizadas',
         name: 'MisOfertas',
-        component: () => import('@/views/OfertasRealizadas.vue')
+        component: () => import('@/views/OfertasRealizadas.vue'),
+        meta: { requiresAuth: true, hideLayout: true }
       },
       {
         path: '/categorias',
         component: () => import('@/views/Categorias.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, hideLayout: true  },
       },
       {
         path: '/categoria/:categoriaId',
         name: 'ProductosPorCategoria',
         component: () => import('@/views/ProductosPorCategoria.vue'),
         meta: { requiresAuth: true },
+      },
+      {
+        path: '/explorar', 
+        component: () => import('@/views/ExplorarPage.vue'),
+        meta: { requiresAuth: true, hideLayout: true } 
       }
-   
+      
+       
+      
       
     ]
   }

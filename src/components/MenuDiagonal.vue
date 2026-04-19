@@ -1,75 +1,132 @@
 <template>
-  <ion-menu content-id="main-content" side="start" :disabled="false">
+  <ion-menu content-id="main-content" side="start" :disabled="false" class="modern-menu">
     <ion-content class="menu-content">
+
+      <!-- Header del menú -->
       <div class="menu-header">
-        <!-- Ícono de marca consistente con el resto de la app -->
-        <div class="brand-icon">
-          <svg width="28" height="28" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="11" height="11" rx="2" fill="white"/>
-            <rect x="21" y="4" width="11" height="11" rx="2" fill="white"/>
-            <rect x="4" y="21" width="11" height="11" rx="2" fill="white"/>
-            <rect x="21" y="21" width="11" height="11" rx="2" fill="white"/>
-          </svg>
+        <div class="brand-row">
+          <div class="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="4" width="11" height="11" rx="2" fill="#F5A623"/>
+              <rect x="21" y="4" width="11" height="11" rx="2" fill="#F5A623"/>
+              <rect x="4" y="21" width="11" height="11" rx="2" fill="#F5A623"/>
+              <rect x="21" y="21" width="11" height="11" rx="2" fill="#F5A623"/>
+            </svg>
+          </div>
+          <span class="brand-name">MercaBit</span>
         </div>
-        <h2 class="logo">MercaBit</h2>
       </div>
 
-      <ion-list>
+      <!-- Perfil del usuario -->
+      <div class="user-profile">
+        <div class="avatar-wrap">
+          <img :src="userPhoto" alt="Usuario" class="user-avatar" />
+          <div class="online-dot" />
+        </div>
+        <div class="user-info">
+          <p class="user-name">{{ userName }}</p>
+          <span class="user-tag">Comprador · Vendedor</span>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="menu-divider" />
+
+      <!-- Items de navegación -->
+      <ion-list class="nav-list" lines="none">
         <ion-menu-toggle auto-hide="false">
-          <ion-item router-link="/home" router-direction="root">
-            <ion-icon :icon="homeOutline" slot-v="start" />
+
+          <ion-item router-link="/home" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap orange" slot="start">
+              <ion-icon :icon="homeOutline" />
+            </div>
             <ion-label>Inicio</ion-label>
           </ion-item>
-          <ion-item router-link="/Notification" router-direction="root">
-            <ion-icon :icon="notificationsOutline" slot-v="start" />
+
+          <ion-item router-link="/Notification" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap blue" slot="start">
+              <ion-icon :icon="notificationsOutline" />
+            </div>
             <ion-label>Notificaciones</ion-label>
           </ion-item>
-          <ion-item router-link="/MisCalificaciones" router-direction="root">
-            <ion-icon :icon="clipboardOutline" slot-v="start" />
+
+          <ion-item router-link="/MisCalificaciones" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap green" slot="start">
+              <ion-icon :icon="clipboardOutline" />
+            </div>
             <ion-label>Mis calificaciones</ion-label>
           </ion-item>
-          <ion-item router-link="/MisCompras" router-direction="root">
-            <ion-icon :icon="cartOutline" slot-v="start" />
+
+          <ion-item router-link="/MisCompras" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap purple" slot="start">
+              <ion-icon :icon="cartOutline" />
+            </div>
             <ion-label>Mis Compras</ion-label>
           </ion-item>
-          <ion-item router-link="/ofertas-realizadas" router-direction="root">
-            <ion-icon :icon="checkmarkCircleOutline" slot-v="start" />
+
+          <ion-item router-link="/ofertas-realizadas" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap teal" slot="start">
+              <ion-icon :icon="checkmarkCircleOutline" />
+            </div>
             <ion-label>Ofertas realizadas</ion-label>
           </ion-item>
-          <ion-item router-link="/agregar-producto" router-direction="root">
-            <ion-icon :icon="addOutline" slot-v="start" />
+
+          <ion-item router-link="/agregar-producto" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap orange" slot="start">
+              <ion-icon :icon="addOutline" />
+            </div>
             <ion-label>Agregar producto</ion-label>
           </ion-item>
-          <ion-item router-link="/mis-publicaciones" router-direction="root">
-            <ion-icon :icon="bagCheckOutline" slot-v="start" />
+
+          <ion-item router-link="/mis-publicaciones" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap blue" slot="start">
+              <ion-icon :icon="bagCheckOutline" />
+            </div>
             <ion-label>Mis publicaciones</ion-label>
           </ion-item>
-          <ion-item router-link="/categorias" router-direction="root">
-            <ion-icon :icon="folderOutline" slot-v="start" />
+
+          <ion-item router-link="/categorias" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap green" slot="start">
+              <ion-icon :icon="folderOutline" />
+            </div>
             <ion-label>Categorías</ion-label>
           </ion-item>
-          <ion-item router-link="/mi-cuenta" router-direction="root">
-            <ion-icon :icon="personOutline" slot-v="start" />
+
+          <ion-item router-link="/explorar" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap orange" slot="start">
+              <ion-icon :icon="searchOutline" />
+            </div>
+            <ion-label>Explorar</ion-label>
+          </ion-item>
+
+          <ion-item router-link="/mi-cuenta" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap purple" slot="start">
+              <ion-icon :icon="personOutline" />
+            </div>
             <ion-label>Mi Cuenta</ion-label>
           </ion-item>
-          <ion-item router-link="/accerca-de-la-app" router-direction="root">
-            <ion-icon :icon="informationCircleOutline" slot-v="start" />
+
+          <ion-item router-link="/accerca-de-la-app" router-direction="root" class="nav-item">
+            <div class="nav-icon-wrap teal" slot="start">
+              <ion-icon :icon="informationCircleOutline" />
+            </div>
             <ion-label>Acerca de la App</ion-label>
           </ion-item>
+
         </ion-menu-toggle>
       </ion-list>
 
-      <!-- Sección de usuario -->
-      <div class="user-section">
-        <img :src="userPhoto" alt="Usuario" class="user-avatar" />
-        <p class="user-name">{{ userName }}</p>
-      </div>
+      <!-- Divider -->
+      <div class="menu-divider" />
 
       <!-- Botón de cerrar sesión -->
-      <ion-button @click="logout" class="logout-button" fill="outline">
-        <ion-icon :icon="logOutOutline" slot-v="start"></ion-icon>
-        Cerrar sesión
-      </ion-button>
+      <div class="logout-wrap">
+        <button class="logout-btn" @click="logout">
+          <ion-icon :icon="logOutOutline" />
+          <span>Cerrar sesión</span>
+        </button>
+      </div>
+
     </ion-content>
   </ion-menu>
 </template>
@@ -83,11 +140,9 @@ import {
   IonItem,
   IonIcon,
   IonLabel,
-  IonButton
 } from '@ionic/vue';
 import {
   homeOutline,
-  searchOutline,
   notificationsOutline,
   clipboardOutline,
   cartOutline,
@@ -97,7 +152,8 @@ import {
   informationCircleOutline,
   logOutOutline,
   addOutline,
-  bagCheckOutline
+  bagCheckOutline,
+  searchOutline
 } from 'ionicons/icons';
 import { logoutUser } from '@/services/authService';
 import { useRouter } from 'vue-router';
@@ -160,97 +216,175 @@ const logout = async () => {
 </script>
 
 <style scoped>
+/* ── Menu base ─────────────────────────────────────── */
 .menu-content {
-  --background: #000;
-  color: white;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  --background: #ffffff;
+  --padding-start: 0;
+  --padding-end: 0;
 }
 
-/* ── Header con ícono y nombre ──────────────────── */
+/* ── Header ────────────────────────────────────────── */
 .menu-header {
+  padding: 52px 20px 20px;
+  background: #ffffff;
+}
+
+.brand-row {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
-  padding: 24px 16px 20px;
 }
 
 .brand-icon {
-  width: 44px;
-  height: 44px;
-  background: #1A1D2E;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  background: #111111;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
 }
 
-.logo {
-  color: white;
-  font-size: 1.5rem;
-  font-weight: bold;
-  white-space: nowrap;
-  margin: 0;
+.brand-name {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #111111;
+  letter-spacing: -0.01em;
 }
 
-/* ── Items del menú ─────────────────────────────── */
-ion-item {
-  --background: transparent;
-  color: white;
-  --color: white;
-}
-
-ion-icon {
-  color: white;
-}
-
-/* ── Sección de usuario ─────────────────────────── */
-.user-section {
-  text-align: center;
-  padding: 20px;
+/* ── User profile ──────────────────────────────────── */
+.user-profile {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  width: 100%;
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+
+.avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .user-avatar {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  border: 2px solid white;
-  margin-bottom: 8px;
   object-fit: cover;
+  border: 2px solid #F5A623;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  width: 12px;
+  height: 12px;
+  background: #27AE60;
+  border-radius: 50%;
+  border: 2px solid #fff;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
 }
 
 .user-name {
-  font-size: 1.2rem;
-  color: white;
-  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 2px;
 }
 
-/* ── Botón cerrar sesión ────────────────────────── */
-.logout-button {
+.user-tag {
+  font-size: 0.72rem;
+  color: #999;
+}
+
+/* ── Divider ───────────────────────────────────────── */
+.menu-divider {
+  height: 1px;
+  background: #F0F0F0;
+  margin: 4px 20px;
+}
+
+/* ── Nav list ──────────────────────────────────────── */
+.nav-list {
+  padding: 8px 12px;
+  background: transparent;
+}
+
+.nav-item {
   --background: transparent;
-  --color: white;
-  --border-color: white;
-  border-radius: 8px;
-  max-width: 170px;
-  height: 35px;
+  --background-activated: #FFF8EE;
+  --color: #222;
+  --padding-start: 8px;
+  --inner-padding-end: 8px;
+  --min-height: 52px;
+  border-radius: 12px;
+  margin-bottom: 2px;
   font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.nav-item ion-label {
+  color: #222;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* Iconos con fondo de color */
+.nav-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 10px auto;
+  margin-right: 10px;
+  font-size: 1rem;
+  flex-shrink: 0;
 }
 
-.logout-button ion-icon {
-  font-size: 1.2rem;
-  margin-right: 8px;
+.nav-icon-wrap ion-icon {
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.nav-icon-wrap.orange { background: #F5A623; }
+.nav-icon-wrap.blue   { background: #4A90D9; }
+.nav-icon-wrap.green  { background: #27AE60; }
+.nav-icon-wrap.purple { background: #8E44AD; }
+.nav-icon-wrap.teal   { background: #16A085; }
+
+/* ── Logout ────────────────────────────────────────── */
+.logout-wrap {
+  padding: 16px 20px 40px;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #FFF0E6;
+  border: none;
+  border-radius: 12px;
+  padding: 13px 18px;
+  width: 100%;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #E07010;
+  transition: background 0.2s;
+}
+
+.logout-btn:active {
+  background: #FFE0CC;
+}
+
+.logout-btn ion-icon {
+  font-size: 1.15rem;
+  color: #E07010;
 }
 </style>

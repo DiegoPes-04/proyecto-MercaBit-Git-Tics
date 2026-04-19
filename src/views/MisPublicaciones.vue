@@ -1,275 +1,308 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
+    <ion-header class="pub-header">
+      <ion-toolbar class="pub-toolbar">
         <ion-buttons slot="start">
-          <ion-menu-button />
+          <ion-menu-button class="menu-btn" />
         </ion-buttons>
-        <ion-title>Mis Publicaciones</ion-title>
+        <ion-title class="pub-title">Mis Publicaciones</ion-title>
+        <ion-buttons slot="end">
+          <ion-button class="add-btn" @click="navigate('/agregar-producto')">
+            <ion-icon :icon="addOutline" />
+          </ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
-    
-    <ion-content class="ion-padding">
-      <ion-list v-if="productos.length > 0">
-        <ion-card v-for="producto in productos" :key="producto.id" class="producto-card">
-          <!-- Mostrar imagen parte superior-->
-          <div class="imagen-container">
-            <ion-img :src="producto.imagenes && producto.imagenes[0]?.url" class="producto-imagen" />
+
+    <ion-content class="pub-content">
+
+      <!-- Hero -->
+      <div class="hero-section">
+        <h1 class="hero-title">Mis<br /><span class="hero-accent">Publicaciones</span></h1>
+        <p class="hero-sub">{{ productos.length }} producto{{ productos.length !== 1 ? 's' : '' }} publicado{{ productos.length !== 1 ? 's' : '' }}</p>
+      </div>
+
+      <!-- Empty state -->
+      <div class="empty-state" v-if="productos.length === 0">
+        <div class="empty-icon-wrap">
+          <ion-icon :icon="bagAddOutline" class="empty-icon" />
+        </div>
+        <h3 class="empty-title">Sin publicaciones</h3>
+        <p class="empty-sub">Aún no has publicado ningún producto en subasta.</p>
+        <button class="pub-new-btn" @click="navigate('/agregar-producto')">
+          <ion-icon :icon="addOutline" /> Agregar producto
+        </button>
+      </div>
+
+      <!-- Lista de productos -->
+      <div class="productos-list" v-else>
+        <div class="producto-card" v-for="producto in productos" :key="producto.id">
+
+          <!-- Imagen -->
+          <div class="card-img-wrap">
+            <img
+              :src="producto.imagenes?.[0]?.url || '/img/imagen-prueba.jpg'"
+              class="card-img"
+              @error="onImgError"
+            />
+            <!-- Badge estado -->
+            <span class="estado-badge" :class="producto.estado === 'Vendido' ? 'vendido' : 'disponible'">
+              {{ producto.estado === 'Vendido' ? 'VENDIDO' : 'DISPONIBLE' }}
+            </span>
           </div>
 
-          <!-- Detalles del producto -->
-          <ion-card-content>
-            <ion-card-title>
-              {{ producto.nombre }}
-            </ion-card-title>
-            <ion-text>
-              <p>Categoría: {{ producto.categoria }}</p>
-              <p>Precio base: ${{ formatearPrecio(producto.precioBase) }} COP</p>
-              <p>Venta inmediata: ${{ formatearPrecio(producto.precioVentaInmediata) }} COP</p>
-              <p>Desde: {{ formatearFechaHora(producto.fechaApertura) }}</p>
-              <p>Hasta: {{ formatearFechaHora(producto.fechaCierre) }}</p>
-              <p>Publicado: {{ formatearFechaPublicacion(producto.creadoEn) }}</p>
-  
-              <!-- Mostrar el estado del producto -->
-              <p v-if="producto.estado === 'Vendido'" class="estado-vendido">Estado: Vendido</p>
-              <p v-else class="estado-disponible">Estado: Disponible</p>
-            </ion-text>
-            <!--Botones en la parte inferior-->
-            <!-- Solo mostrar el botón "Vendido" si el producto no está vendido -->
-            <div class="botones-container">
-              <ion-button v-if="producto.estado !== 'Vendido'" color="success" @click="marcarComoVendido(producto.id)">
-                Vendido
-              </ion-button>
-              <ion-button color="danger" @click="eliminarProducto(producto.id)">
-                Borrar
-              </ion-button>
+          <!-- Info -->
+          <div class="card-body">
+            <div class="card-top">
+              <span class="card-cat">{{ producto.categoria || 'Sin categoría' }}</span>
+              <span class="card-fecha">{{ formatearFechaPublicacion(producto.creadoEn) }}</span>
             </div>
-          </ion-card-content>
-        </ion-card>
-      </ion-list>
+            <h2 class="card-nombre">{{ producto.nombre }}</h2>
 
-      <ion-text v-else>
-        No tienes productos publicados aún.
-      </ion-text>
+            <!-- Precios -->
+            <div class="precios-row">
+              <div class="precio-item">
+                <span class="precio-label">Precio base</span>
+                <span class="precio-val">${{ formatearPrecio(producto.precioBase) }}</span>
+              </div>
+              <div class="precio-divider" />
+              <div class="precio-item">
+                <span class="precio-label">Cierre inmediato</span>
+                <span class="precio-val orange">${{ formatearPrecio(producto.precioVentaInmediata) }}</span>
+              </div>
+            </div>
+
+            <!-- Fechas -->
+            <div class="fechas-row">
+              <div class="fecha-item">
+                <ion-icon :icon="calendarOutline" class="fecha-icon" />
+                <div>
+                  <span class="fecha-label">Apertura</span>
+                  <span class="fecha-val">{{ formatearFechaHora(producto.fechaApertura) }}</span>
+                </div>
+              </div>
+              <div class="fecha-item">
+                <ion-icon :icon="timeOutline" class="fecha-icon" />
+                <div>
+                  <span class="fecha-label">Cierre</span>
+                  <span class="fecha-val">{{ formatearFechaHora(producto.fechaCierre) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Acciones -->
+            <div class="acciones-row">
+              <button
+                v-if="producto.estado !== 'Vendido'"
+                class="btn-vendido"
+                @click="marcarComoVendido(producto.id)"
+              >
+                <ion-icon :icon="checkmarkCircleOutline" />
+                Marcar Vendido
+              </button>
+              <button class="btn-borrar" @click="eliminarProducto(producto.id)">
+                <ion-icon :icon="trashOutline" />
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 80px" />
     </ion-content>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+      <div class="nav-item" @click="navigate('/home')">
+        <ion-icon :icon="homeOutline" /><span>INICIO</span>
+      </div>
+      <div class="nav-item" @click="navigate('/categorias')">
+        <ion-icon :icon="gridOutline" /><span>CATEGORÍAS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/ofertas-realizadas')">
+        <ion-icon :icon="layersOutline" /><span>MIS TRATOS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/explorar')">
+        <ion-icon :icon="searchOutline" /><span>EXPLORAR</span>
+      </div>
+      <div class="nav-item" @click="navigate('/Notification')">
+        <ion-icon :icon="notificationsOutline" /><span>ALERTS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/mi-cuenta')">
+        <ion-icon :icon="personOutline" /><span>CUENTA</span>
+      </div>
+    </div>
   </ion-page>
 </template>
 
 <script setup>
 import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonButtons,
-  IonMenuButton,
-  IonList,
-  IonItem,
-  IonLabel,
-  IonText,
-  IonImg,
-  IonCard,
-  IonCardContent,
-  IonCardTitle,
-  IonButton
-} from '@ionic/vue';
-import { ref, onMounted } from 'vue';
-import { db, auth } from '../firebase/FirebaseConfig';
-import { collection, query, where, getDocs, getDoc, updateDoc, doc } from 'firebase/firestore';
-import { deleteDoc } from "firebase/firestore";
-import { storage } from '../firebase/FirebaseConfig'; // Importa Firebase Storage
-import { ref as storageRef, deleteObject } from 'firebase/storage'; // Importa las funciones necesarias para manejar Storage
+  IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
+  IonButtons, IonMenuButton, IonButton, IonIcon
+} from '@ionic/vue'
+import {
+  addOutline, bagAddOutline, calendarOutline, timeOutline,
+  checkmarkCircleOutline, trashOutline,
+  homeOutline, gridOutline, layersOutline,
+  searchOutline, notificationsOutline, personOutline
+} from 'ionicons/icons'
+import { ref, onMounted } from 'vue'
+import { db, auth, storage } from '../firebase/FirebaseConfig'
+import { collection, query, where, getDocs, getDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore'
+import { ref as storageRef, deleteObject } from 'firebase/storage'
+import { useRouter } from 'vue-router'
 
-const productos = ref([]);
+const router = useRouter()
+const navigate = (path) => router.push(path)
+const productos = ref([])
 
-// Función para formatear precios
+const onImgError = (e) => { e.target.src = '/img/imagen-prueba.jpg' }
+
 const formatearPrecio = (precio) => {
-  if (!precio && precio !== 0) return 'N/A';
-  return new Intl.NumberFormat('es-CO').format(precio);
-};
+  if (!precio && precio !== 0) return 'N/A'
+  // Si es objeto (map de Firestore)
+  if (typeof precio === 'object') {
+    const val = precio.valor || precio.value || Object.values(precio)[0]
+    return new Intl.NumberFormat('es-CO').format(val || 0)
+  }
+  return new Intl.NumberFormat('es-CO').format(precio)
+}
 
-// Función para formatear fechas y horas
 const formatearFechaHora = (fechaStr) => {
-  if (!fechaStr) return 'N/A';
-  
+  if (!fechaStr) return 'N/A'
   try {
-    // Crear una fecha a partir del string
-    const fecha = new Date(fechaStr);
-    
-    // Verificar si la fecha es válida
-    if (isNaN(fecha.getTime())) return 'Fecha inválida';
-    
-    // Formatear la fecha: DD/MM/YYYY, HH:MM a.m./p.m.
-    const dia = String(fecha.getDate()).padStart(2, '0');
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    const anio = fecha.getFullYear();
-    
-    // Formatear la hora en formato 12h con a.m./p.m.
-    let horas = fecha.getHours();
-    const minutos = String(fecha.getMinutes()).padStart(2, '0');
-    const periodo = horas >= 12 ? 'p.m.' : 'a.m.';
-    
-    // Convertir a formato 12h
-    horas = horas % 12;
-    horas = horas ? horas : 12; // Si es 0, mostrar como 12
-    
-    return `${dia}/${mes}/${anio}, ${horas}:${minutos} ${periodo}`;
-  } catch (error) {
-    console.error("Error al formatear fecha:", error);
-    return 'Error de formato';
-  }
-};
+    const fecha = fechaStr?.toDate ? fechaStr.toDate() : new Date(fechaStr)
+    if (isNaN(fecha.getTime())) return 'N/A'
+    return fecha.toLocaleString('es-CO', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  } catch { return 'N/A' }
+}
 
-// Función para formatear la fecha de publicación (menos detallada)
 const formatearFechaPublicacion = (fechaStr) => {
-  if (!fechaStr) return 'N/A';
-  
+  if (!fechaStr) return ''
   try {
-    const fecha = new Date(fechaStr);
-    
-    if (isNaN(fecha.getTime())) return 'Fecha inválida';
-    
-    const dia = String(fecha.getDate()).padStart(2, '0');
-    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-    const anio = fecha.getFullYear();
-    
-    return `${dia}/${mes}/${anio}`;
-  } catch (error) {
-    console.error("Error al formatear fecha de publicación:", error);
-    return 'Error de formato';
-  }
-};
+    const fecha = fechaStr?.toDate ? fechaStr.toDate() : new Date(fechaStr)
+    if (isNaN(fecha.getTime())) return ''
+    return fecha.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+  } catch { return '' }
+}
 
 const cargarMisProductos = async () => {
-  const user = auth.currentUser;
-  if (!user) return;
-
+  const user = auth.currentUser
+  if (!user) return
   try {
-    const q = query(
-      collection(db, 'products'),
-      where('userId', '==', user.uid)
-    );
-
-    const querySnapshot = await getDocs(q);
-    productos.value = querySnapshot.docs
-      .map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      .sort((a, b) => {
-        // Orden descendente: productos más recientes primero
-        if (a.creadoEn > b.creadoEn) return 1;
-        if (a.creadoEn < b.creadoEn) return -1;
-        return 0;
-      });
-  } catch (error) {
-    console.error("Error al cargar productos:", error);
+    const q = query(collection(db, 'products'), where('userId', '==', user.uid))
+    const snap = await getDocs(q)
+    productos.value = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.creadoEn > a.creadoEn ? 1 : -1))
+  } catch (e) {
+    console.error('Error al cargar productos:', e)
   }
-};
+}
 
-// Eliminar producto de Firestore y del arreglo local
 const eliminarProducto = async (id) => {
   try {
-    // Obtener el producto desde la base de datos
-    const productoRef = doc(db, "products", id);
-    const docSnap = await getDoc(productoRef);
-
-    if (docSnap.exists()) {
-      const productoData = docSnap.data();
-      
-      // Si el producto tiene imágenes, eliminar cada una de ellas de Firebase Storage
-      if (productoData.imagenes && productoData.imagenes.length > 0) {
-        for (const imagen of productoData.imagenes) {
-          const imagenRef = storageRef(storage, imagen.path); // Referencia de la imagen en Storage
-          
-          // Eliminar la imagen de Firebase Storage
-          await deleteObject(imagenRef);
-          console.log(`Imagen eliminada: ${imagen.path}`);
+    const productoRef = doc(db, 'products', id)
+    const snap = await getDoc(productoRef)
+    if (snap.exists()) {
+      const data = snap.data()
+      if (data.imagenes?.length > 0) {
+        for (const img of data.imagenes) {
+          await deleteObject(storageRef(storage, img.path))
         }
       }
-      
-      // Eliminar el producto de Firestore
-      await deleteDoc(productoRef);
-      
-      // Actualizar el arreglo local de productos
-      productos.value = productos.value.filter(p => p.id !== id);
-      console.log('Producto eliminado correctamente');
+      await deleteDoc(productoRef)
+      productos.value = productos.value.filter(p => p.id !== id)
     }
-  } catch (error) {
-    console.error("Error al eliminar producto:", error);
+  } catch (e) {
+    console.error('Error al eliminar:', e)
   }
-};
+}
 
-// Marcar como vendido (actualizar estado y UI)
 const marcarComoVendido = async (id) => {
   try {
-    const productoRef = doc(db, "products", id);
-    
-    // Actualizamos el estado a "Vendido"
-    await updateDoc(productoRef, {
-      estado: "Vendido"
-    });
-
-    // Actualizar el producto en el arreglo local
-    productos.value = productos.value.map(p => 
-      p.id === id ? { ...p, estado: "Vendido" } : p
-    );
-  } catch (error) {
-    console.error("Error al marcar como vendido:", error);
+    await updateDoc(doc(db, 'products', id), { estado: 'Vendido' })
+    productos.value = productos.value.map(p =>
+      p.id === id ? { ...p, estado: 'Vendido' } : p
+    )
+  } catch (e) {
+    console.error('Error al marcar vendido:', e)
   }
-};
+}
 
-onMounted(() => {
-  cargarMisProductos();
-});
+onMounted(cargarMisProductos)
 </script>
 
 <style scoped>
-.producto-card
-{
-  margin-bottom: 20px;
-  width: 100%;
-}
+.pub-header { --background: #fff; border-bottom: 1px solid #eee; }
+.pub-toolbar { --background: #fff; --color: #111; --min-height: 60px; padding: 0 8px; }
+.pub-title { font-size: 1rem; font-weight: 800; color: #111; }
+.menu-btn { --color: #111; }
+.add-btn { --color: #F5A623; }
+.pub-content { --background: #F5F5F5; }
 
-.imagen-container {
-  width: auto;
-  height: 200px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-}
+/* Hero */
+.hero-section { background: #fff; padding: 20px 20px 18px; margin-bottom: 10px; }
+.hero-title { font-size: 1.6rem; font-weight: 900; color: #111; line-height: 1.2; margin: 0 0 4px; }
+.hero-accent { color: #F5A623; }
+.hero-sub { font-size: 0.8rem; color: #aaa; margin: 0; }
 
-.producto-imagen {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+/* Empty */
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 60px 30px; text-align: center; }
+.empty-icon-wrap { width: 72px; height: 72px; background: #FFF3E0; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+.empty-icon { font-size: 2rem; color: #F5A623; }
+.empty-title { font-size: 1rem; font-weight: 800; color: #111; margin: 0 0 6px; }
+.empty-sub { font-size: 0.82rem; color: #aaa; margin: 0 0 20px; }
+.pub-new-btn { background: #F5A623; border: none; border-radius: 20px; padding: 10px 24px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 
-.estado-vendido {
-  color: green;
-  font-weight: bold;
-}
+/* Lista */
+.productos-list { padding: 0 16px; display: flex; flex-direction: column; gap: 14px; }
 
-.estado-disponible {
-  color: orange;
-}
+.producto-card { background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 2px 14px rgba(0,0,0,0.07); }
 
-.botones-container {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-}
+/* Imagen */
+.card-img-wrap { position: relative; width: 100%; height: 200px; background: #f0f0f0; }
+.card-img { width: 100%; height: 100%; object-fit: cover; }
+.estado-badge { position: absolute; top: 12px; right: 12px; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 20px; }
+.estado-badge.vendido { background: #27AE60; color: #fff; }
+.estado-badge.disponible { background: #F5A623; color: #000; }
 
-.boton-accion {
-  flex: 1;
-}
+/* Body */
+.card-body { padding: 16px; }
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.card-cat { font-size: 0.65rem; font-weight: 700; color: #F5A623; letter-spacing: 0.08em; text-transform: uppercase; }
+.card-fecha { font-size: 0.65rem; color: #aaa; }
+.card-nombre { font-size: 1.1rem; font-weight: 900; color: #111; margin: 0 0 14px; }
 
-/* Estilos para dispositivos móviles */
-@media (max-width: 576px) {
-  .botones-container {
-    flex-direction: column;
-  }
-}
+/* Precios */
+.precios-row { display: flex; align-items: center; background: #F9F9F9; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+.precio-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.precio-label { font-size: 0.6rem; color: #aaa; font-weight: 600; }
+.precio-val { font-size: 0.9rem; font-weight: 900; color: #111; }
+.precio-val.orange { color: #F5A623; }
+.precio-divider { width: 1px; height: 30px; background: #eee; }
+
+/* Fechas */
+.fechas-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.fecha-item { display: flex; align-items: center; gap: 10px; }
+.fecha-icon { font-size: 1rem; color: #F5A623; flex-shrink: 0; }
+.fecha-label { font-size: 0.6rem; color: #aaa; font-weight: 600; display: block; }
+.fecha-val { font-size: 0.78rem; font-weight: 700; color: #111; }
+
+/* Acciones */
+.acciones-row { display: flex; gap: 10px; }
+.btn-vendido { flex: 1; background: #E8F5E9; border: none; border-radius: 12px; padding: 12px; font-size: 0.8rem; font-weight: 700; color: #27AE60; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+.btn-borrar { flex: 1; background: #FFF0F0; border: none; border-radius: 12px; padding: 12px; font-size: 0.8rem; font-weight: 700; color: #E53935; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
+.btn-vendido ion-icon, .btn-borrar ion-icon { font-size: 1rem; pointer-events: none; }
+
+/* Bottom Nav */
+.bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; background: #fff; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-around; z-index: 999; box-shadow: 0 -4px 20px rgba(0,0,0,0.07); }
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: 1; height: 100%; color: #aaa; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+.nav-item ion-icon { font-size: 1.3rem; pointer-events: none; }
+.nav-item span { font-size: 0.48rem; font-weight: 700; letter-spacing: 0.06em; pointer-events: none; }
+.nav-item.active { color: #F5A623; }
 </style>
