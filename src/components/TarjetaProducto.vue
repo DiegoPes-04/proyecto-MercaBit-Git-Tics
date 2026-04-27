@@ -1,106 +1,178 @@
 <template>
-  <ion-card @click="verProducto" class="tarjeta-producto">
-    <img :src="producto.imagenes && producto.imagenes[0]?.url" />
-    <ion-card-header>
-      <ion-card-title>{{ producto.nombre }}</ion-card-title>
-      <ion-card-subtitle>{{ producto.categoria }}</ion-card-subtitle>
-    </ion-card-header>
+  <div class="tarjeta" @click="verProducto">
+    <!-- Imagen -->
+    <div class="tarjeta-img-wrap">
+      <img
+        :src="producto.imagenes?.[0]?.url || '/img/imagen-prueba.jpg'"
+        class="tarjeta-img"
+        @error="onImgError"
+      />
+      <!-- Badge verificado si aplica -->
+      <!-- Badge de estado -->
+      <span class="verified-badge" v-if="producto.verificado && producto.estado !== 'Finalizada'">
+        <ion-icon :icon="checkmarkCircle" /> VERIFICADO
+      </span>
+      <span class="estado-badge-finalizada" v-if="producto.estado === 'Finalizada'">
+        FINALIZADA
+      </span>
+      <span class="estado-badge-disponible" v-else-if="producto.estado === 'Disponible'">
+        ACTIVA
+      </span>
+    </div>
 
-    <ion-card-content class="producto-info">
-      <p><strong>Precio base:</strong> ${{ producto.precioBase }}</p>
-      <p><strong>Venta inmediata:</strong> ${{ producto.precioVentaInmediata }}</p>
-      <p><strong>Disponible hasta:</strong> {{ formatoFecha(producto.fechaCierre) }}</p>
-    </ion-card-content>
-  </ion-card>
+    <!-- Info -->
+    <div class="tarjeta-body">
+      <span class="tarjeta-cat">{{ producto.categoria }}</span>
+      <h3 class="tarjeta-nombre">{{ producto.nombre }}</h3>
+
+      <div class="tarjeta-precios">
+        <div class="precio-row">
+          <span class="precio-label">Base</span>
+          <span class="precio-val">${{ formatPrecio(producto.precioBase) }}</span>
+        </div>
+        <div class="precio-row naranja">
+          <span class="precio-label">Inmediato</span>
+          <span class="precio-val">${{ formatPrecio(producto.precioVentaInmediata) }}</span>
+        </div>
+      </div>
+
+      <div class="tarjeta-footer">
+        <ion-icon :icon="timeOutline" class="footer-icon" />
+        <span class="tarjeta-fecha">{{ formatoFecha(producto.fechaCierre) }}</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router';
-import { 
-  IonCard, 
-  IonCardHeader, 
-  IonCardSubtitle, 
-  IonCardContent, 
-  IonCardTitle 
-} from '@ionic/vue';
-
-const router = useRouter(); 
+import { IonIcon } from '@ionic/vue'
+import { checkmarkCircle, timeOutline } from 'ionicons/icons'
+import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  producto: {
-    type: Object,
-    required: true
-  }
+  producto: { type: Object, required: true }
 })
 
-// Función para redirigir a la página del producto (subasta)
+const router = useRouter()
+
 function verProducto() {
-  if (props.producto && props.producto.id) {
-    // Redirigir a la página de subasta del producto usando el id
+  if (props.producto?.id) {
     router.push(`/producto/${props.producto.id}`)
-  } else {
-    console.error("ID del producto no disponible");
   }
+}
+
+function onImgError(e) {
+  e.target.src = '/img/imagen-prueba.jpg'
+}
+
+function formatPrecio(val) {
+  if (!val && val !== 0) return '—'
+  if (typeof val === 'object') {
+    const inner = val.valor || val.value || Object.values(val)[0]
+    return Number(inner || 0).toLocaleString('es-CO')
+  }
+  return Number(val).toLocaleString('es-CO')
 }
 
 function formatoFecha(fecha) {
   try {
-    const date = typeof fecha.toDate === 'function' ? fecha.toDate() : new Date(fecha)
-    return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    })
-  } catch (e) {
-    return 'Fecha no disponible'
-  }
+    const d = fecha?.toDate ? fecha.toDate() : new Date(fecha)
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+  } catch { return 'N/A' }
 }
 </script>
 
 <style scoped>
-.producto-info {
-  margin-top: 10px;
+.tarjeta {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  transition: transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
-ion-card-title {
-  font-size: 1.3em;
-}
+.tarjeta:active { transform: scale(0.97); }
 
-ion-card-subtitle {
-  color: #666;
-  font-size: 1em;
-}
-
-ion-card-footer {
-  background-color: #f4f4f4;
-  font-size: 0.9em;
-}
-
-img {
+/* Imagen */
+.tarjeta-img-wrap {
+  position: relative;
   width: 100%;
-  height: 200px;
+  aspect-ratio: 1;
+  background: #f0f0f0;
+  overflow: hidden;
+}
+
+.tarjeta-img {
+  width: 100%; height: 100%;
   object-fit: cover;
-  border-radius: 8px 8px 0 0;
+  transition: transform 0.3s;
 }
 
-/* Efecto Hover */
-ion-card {
-  transition: transform 0.3s, box-shadow 0.3s;
-  cursor: pointer;
+.tarjeta:active .tarjeta-img { transform: scale(1.04); }
+
+.estado-badge-finalizada {
+  position: absolute; top: 8px; right: 8px;
+  background: #E53935; color: #fff;
+  font-size: 0.52rem; font-weight: 800;
+  letter-spacing: 0.06em; padding: 3px 7px;
+  border-radius: 5px;
 }
 
-ion-card:hover {
-  transform: translateY(-10px); /* Eleva ligeramente la tarjeta */
-  box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.1); /* Sombra para darle un efecto flotante */
+.estado-badge-disponible {
+  position: absolute; top: 8px; right: 8px;
+  background: #27AE60; color: #fff;
+  font-size: 0.52rem; font-weight: 800;
+  letter-spacing: 0.06em; padding: 3px 7px;
+  border-radius: 5px;
 }
 
-.tarjeta-producto {
-  cursor: pointer;
-  transition: transform 0.2s ease-in-out;
+.verified-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: #27AE60; color: #fff;
+  font-size: 0.52rem; font-weight: 700;
+  letter-spacing: 0.06em; padding: 3px 6px;
+  border-radius: 5px; display: flex;
+  align-items: center; gap: 3px;
 }
 
-.tarjeta-producto:hover {
-  transform: scale(1.02);
+/* Body */
+.tarjeta-body { padding: 10px 10px 12px; }
+
+.tarjeta-cat {
+  font-size: 0.58rem; font-weight: 700;
+  color: #F5A623; letter-spacing: 0.08em;
+  text-transform: uppercase; display: block;
+  margin-bottom: 3px;
 }
 
+.tarjeta-nombre {
+  font-size: 0.85rem; font-weight: 800;
+  color: #111; margin: 0 0 8px;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Precios */
+.tarjeta-precios { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+
+.precio-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+}
+
+.precio-label { font-size: 0.6rem; color: #aaa; font-weight: 600; }
+.precio-val { font-size: 0.78rem; font-weight: 800; color: #111; }
+.precio-row.naranja .precio-val { color: #F5A623; }
+
+/* Footer fecha */
+.tarjeta-footer {
+  display: flex; align-items: center; gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid #F5F5F5;
+}
+
+.footer-icon { font-size: 0.75rem; color: #aaa; }
+.tarjeta-fecha { font-size: 0.65rem; color: #aaa; font-weight: 600; }
 </style>

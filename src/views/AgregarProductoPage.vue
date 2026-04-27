@@ -1,500 +1,417 @@
-<!-- AgregarProductoPage.vue -->
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
+    <ion-header class="agregar-header">
+      <ion-toolbar class="agregar-toolbar">
         <ion-buttons slot="start">
-          <ion-menu-button />
+          <ion-menu-button class="menu-btn" />
         </ion-buttons>
-        <ion-title>Crear Productos</ion-title>
+        <ion-title class="agregar-title">Nuevo Producto</ion-title>
+        <ion-buttons slot="end">
+          <ion-button class="cancel-btn" @click="cancelar">Cancelar</ion-button>
+        </ion-buttons>
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
-      <div class="crear-producto-container">
-        <form @submit.prevent="crearProducto">
-          <ion-item>
-            <ion-label position="stacked">Nombre</ion-label>
-            <ion-input 
-              v-model="producto.nombre" 
-              type="text" 
-              required
-              placeholder="Ingrese el nombre del producto"
-            ></ion-input>
-          </ion-item>
+    <ion-content class="agregar-content">
 
-          <ion-item>
-            <ion-label position="stacked">Categoría</ion-label>
-            <ion-select 
-              v-model="producto.categoria" 
-              placeholder="Seleccione una categoría"
-              interface="action-sheet"
+      <!-- Hero -->
+      <div class="hero-section">
+        <h1 class="hero-title">Crear<br /><span class="hero-accent">Subasta</span></h1>
+        <p class="hero-sub">Completa los datos para publicar tu producto</p>
+      </div>
+
+      <form @submit.prevent="crearProducto" class="form-wrap">
+
+        <!-- ── Información básica ── -->
+        <div class="form-section">
+          <h3 class="form-section-title">Información básica</h3>
+
+          <div class="field-group">
+            <label class="field-label">Nombre del producto</label>
+            <input
+              v-model="producto.nombre"
+              type="text"
+              class="field-input"
+              placeholder="Ej: iPhone 15 Pro Max"
               required
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Categoría</label>
+            <!-- Selector visual de categorías -->
+          <div class="cat-selector">
+            <div
+              v-for="cat in categoriasList"
+              :key="cat.value"
+              class="cat-chip"
+              :class="{ selected: producto.categoria === cat.value }"
+              @click="producto.categoria = cat.value"
             >
-              <ion-select-option value="Autos y Motos">Autos y Motos</ion-select-option>
-              <ion-select-option value="Ropa">Ropa</ion-select-option>
-              <ion-select-option value="Industrial y Maquinaria">Industrial y Maquinaria</ion-select-option>
-              <ion-select-option value="Inmuebles">Inmuebles</ion-select-option>
-              <ion-select-option value="Hogar y Decoracion">Hogar y Decoracion</ion-select-option>
-              <ion-select-option value="Tecnología">Tecnología</ion-select-option>
-            </ion-select>
-          </ion-item>
-
-          <!-- Campo condicional para nueva categoría -->
-          <ion-item v-if="producto.categoria === 'otra'">
-            <ion-label position="stacked">Nueva Categoría</ion-label>
-            <ion-input 
-              v-model="producto.nuevaCategoria" 
-              type="text" 
-              placeholder="Ingrese la nueva categoría"
-            ></ion-input>
-          </ion-item>
-
-          <ion-item>
-            <ion-label position="stacked">Descripción del Producto</ion-label>
-            <ion-textarea 
-              v-model="producto.descripcion" 
-              placeholder="Describa su producto"
-              required
-            ></ion-textarea>
-          </ion-item>
-
-          <ion-item>
-            <ion-label position="stacked">Fotos</ion-label>
-            <ion-input 
-              type="file" 
-              multiple="true"
-              accept="image/*"
-              @change="cargarImagenes"
-            ></ion-input>
-            <div class="imagenes-preview">
-              <div v-for="(preview, index) in imagenesPreview" :key="index" class="imagen-preview-container">
-                <img :src="preview" class="imagen-preview"/>
-                <ion-icon name="close-circle" class="eliminar-imagen" @click="eliminarImagenPreview(index)"></ion-icon>
-              </div>
+              <ion-icon :icon="cat.icon" class="cat-chip-icon" />
+              <span>{{ cat.label }}</span>
             </div>
-          </ion-item>
+          </div>
+          </div>
 
-          <div class="ion-margin-vertical">
-            <ion-text color="medium">
-              <h3>Fechas</h3>
-            </ion-text>
-            <ion-item>
-              <ion-label position="stacked">Apertura</ion-label>
-              <ion-input 
+          <div class="field-group" v-if="producto.categoria === 'otra'">
+            <label class="field-label">Nueva categoría</label>
+            <input
+              v-model="producto.nuevaCategoria"
+              type="text"
+              class="field-input"
+              placeholder="Nombre de la nueva categoría"
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Descripción</label>
+            <textarea
+              v-model="producto.descripcion"
+              class="field-textarea"
+              placeholder="Describe tu producto en detalle..."
+              rows="4"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- ── Fotos ── -->
+        <div class="form-section">
+          <h3 class="form-section-title">Fotos del producto</h3>
+
+          <!-- Grid de 3 slots -->
+          <div class="fotos-slots">
+            <!-- Slots con imagen -->
+            <div
+              class="foto-slot filled"
+              v-for="(preview, index) in imagenesPreview"
+              :key="'preview-' + index"
+            >
+              <img :src="preview" class="slot-img" />
+              <button class="slot-remove" type="button" @click="eliminarImagenPreview(index)">
+                <ion-icon :icon="closeCircle" />
+              </button>
+              <span class="slot-num">{{ index + 1 }}</span>
+            </div>
+
+            <!-- Slots vacíos hasta 3 -->
+            <label
+              class="foto-slot empty"
+              v-for="i in (3 - imagenesPreview.length)"
+              :key="'empty-' + i"
+              v-if="imagenesPreview.length < 3"
+            >
+              <ion-icon :icon="cameraOutline" class="slot-add-icon" />
+              <span class="slot-add-text">Foto {{ imagenesPreview.length + i }}</span>
+              <input
+                type="file"
+                accept="image/*"
+                style="display:none"
+                @change="cargarImagenes"
+              />
+            </label>
+          </div>
+          <p class="fotos-hint">{{ imagenesPreview.length }}/3 fotos · Toca un slot vacío para agregar</p>
+
+          <!-- Progreso -->
+          <div class="progreso-wrap" v-if="cargandoImagenes">
+            <div class="progreso-bar">
+              <div class="progreso-fill" :style="{ width: (progresoSubida * 100) + '%' }" />
+            </div>
+            <span class="progreso-text">Subiendo... {{ Math.round(progresoSubida * 100) }}%</span>
+          </div>
+        </div>
+
+        <!-- ── Fechas ── -->
+        <div class="form-section">
+          <h3 class="form-section-title">Duración de la subasta</h3>
+
+          <div class="fechas-grid">
+            <div class="field-group">
+              <label class="field-label">Fecha apertura</label>
+              <input
                 :value="mostrarFecha(producto.fechaApertura)"
-                placeholder="Seleccione fecha"
-                @click="mostrarCalendarioApertura = true"
+                class="field-input"
+                placeholder="DD/MM/AAAA"
                 readonly
-              ></ion-input>
-              <ion-datetime 
+                @click="mostrarCalendarioApertura = true"
+              />
+              <ion-datetime
                 v-if="mostrarCalendarioApertura"
                 v-model="producto.fechaApertura"
                 presentation="date"
                 @ionChange="onDateChangeApertura"
                 @ionCancel="mostrarCalendarioApertura = false"
-              ></ion-datetime>
-            </ion-item>
+              />
+            </div>
 
-            <ion-item>
-              <ion-label position="stacked">Hora de Apertura</ion-label>
-              <ion-select 
-                v-model="producto.horaApertura" 
-                placeholder="Seleccione hora"
+            <div class="field-group">
+              <label class="field-label">Hora apertura</label>
+              <ion-select
+                v-model="producto.horaApertura"
+                placeholder="Hora"
                 interface="action-sheet"
-                required
+                class="field-select"
               >
-                <ion-select-option 
-                  v-for="hora in horasDisponibles" 
-                  :key="hora" 
-                  :value="hora"
-                >
+                <ion-select-option v-for="hora in horasDisponibles" :key="hora" :value="hora">
                   {{ hora }}:00
                 </ion-select-option>
               </ion-select>
-            </ion-item>
+            </div>
 
-            <ion-item>
-              <ion-label position="stacked">Cierre</ion-label>
-              <ion-input 
+            <div class="field-group">
+              <label class="field-label">Fecha cierre</label>
+              <input
                 :value="mostrarFecha(producto.fechaCierre)"
-                placeholder="Seleccione fecha"
-                @click="mostrarCalendarioCierre = true"
+                class="field-input"
+                placeholder="DD/MM/AAAA"
                 readonly
-              ></ion-input>
-              <ion-datetime 
+                @click="mostrarCalendarioCierre = true"
+              />
+              <ion-datetime
                 v-if="mostrarCalendarioCierre"
                 v-model="producto.fechaCierre"
                 presentation="date"
                 @ionChange="onDateChangeCierre"
                 @ionCancel="mostrarCalendarioCierre = false"
-              ></ion-datetime>
-            </ion-item>
+              />
+            </div>
 
-            <ion-item>
-              <ion-label position="stacked">Hora de Cierre</ion-label>
-              <ion-select 
-                v-model="producto.horaCierre" 
-                placeholder="Seleccione hora"
+            <div class="field-group">
+              <label class="field-label">Hora cierre</label>
+              <ion-select
+                v-model="producto.horaCierre"
+                placeholder="Hora"
                 interface="action-sheet"
-                required
+                class="field-select"
               >
-                <ion-select-option 
-                  v-for="hora in horasDisponibles" 
-                  :key="hora" 
-                  :value="hora"
-                >
+                <ion-select-option v-for="hora in horasDisponibles" :key="hora" :value="hora">
                   {{ hora }}:00
                 </ion-select-option>
               </ion-select>
-            </ion-item>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Precios ── -->
+        <div class="form-section">
+          <h3 class="form-section-title">Precios</h3>
+
+          <div class="field-group">
+            <label class="field-label">Precio base <span class="field-badge">COP</span></label>
+            <input
+              v-model="producto.precioBase"
+              type="number"
+              min="0"
+              step="0.01"
+              class="field-input"
+              placeholder="0"
+            />
           </div>
 
-          <div class="ion-margin-vertical">
-            <ion-text color="medium">
-              <h3>Precios</h3>
-            </ion-text>
-            <ion-item>
-              <ion-label position="stacked">Precio Base</ion-label>
-              <ion-input 
-                v-model="producto.precioBase" 
-                type="number" 
-                min="0" 
-                step="0.01"
-                placeholder="Ingrese precio base"
-              ></ion-input>
-              <ion-text slot="end" color="medium">COP</ion-text>
-            </ion-item>
-
-            <ion-item>
-              <ion-label position="stacked">Precio Venta Inmediata</ion-label>
-              <ion-input 
-                v-model="producto.precioVentaInmediata" 
-                type="number" 
-                min="0" 
-                step="0.01"
-                placeholder="Ingrese precio de venta inmediata"
-              ></ion-input>
-              <ion-text slot="end" color="medium">COP</ion-text>
-            </ion-item>
+          <div class="field-group">
+            <label class="field-label">Precio cierre inmediato <span class="field-badge orange">COP</span></label>
+            <input
+              v-model="producto.precioVentaInmediata"
+              type="number"
+              min="0"
+              step="0.01"
+              class="field-input"
+              placeholder="0"
+            />
           </div>
+        </div>
 
-          <div class="botones-container ion-padding">
-            <ion-button 
-              expand="block" 
-              fill="outline" 
-              color="dark" 
-              @click="cancelar"
-            >
-              Cancelar
-            </ion-button>
-            <ion-button 
-              expand="block"
-              color="primary"
-              type="submit"
-              :disabled="cargandoImagenes || !formularioValido"
-            >
-              {{ cargandoImagenes ? 'Subiendo...' : 'Agregar Producto' }}
-            </ion-button>
-          </div>
+        <!-- ── Botón submit ── -->
+        <div class="submit-wrap">
+          <button
+            type="submit"
+            class="submit-btn"
+            :disabled="cargandoImagenes || !formularioValido"
+            :class="{ disabled: cargandoImagenes || !formularioValido }"
+          >
+            <ion-icon :icon="addCircleOutline" />
+            {{ cargandoImagenes ? 'Publicando...' : 'Publicar Subasta' }}
+          </button>
+        </div>
 
-          <!-- Indicador de progreso para subida de imágenes -->
-          <div v-if="cargandoImagenes" class="progreso-container">
-            <ion-progress-bar :value="progresoSubida"></ion-progress-bar>
-            <ion-text color="medium">Subiendo imágenes: {{ Math.round(progresoSubida * 100) }}%</ion-text>
-          </div>
-        </form>
-      </div>
+        <div style="height: 80px" />
+      </form>
     </ion-content>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav">
+      <div class="nav-item" @click="navigate('/home')">
+        <ion-icon :icon="homeOutline" /><span>INICIO</span>
+      </div>
+      <div class="nav-item" @click="navigate('/categorias')">
+        <ion-icon :icon="gridOutline" /><span>CATEGORÍAS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/ofertas-realizadas')">
+        <ion-icon :icon="layersOutline" /><span>MIS TRATOS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/explorar')">
+        <ion-icon :icon="searchOutline" /><span>EXPLORAR</span>
+      </div>
+      <div class="nav-item" @click="navigate('/Notification')">
+        <ion-icon :icon="notificationsOutline" /><span>ALERTS</span>
+      </div>
+      <div class="nav-item" @click="navigate('/mi-cuenta')">
+        <ion-icon :icon="personOutline" /><span>CUENTA</span>
+      </div>
+    </div>
   </ion-page>
 </template>
 
 <script setup>
-import { 
-  IonPage, 
-  IonHeader, 
-  IonToolbar, 
-  IonTitle, 
-  IonContent, 
-  IonButtons, 
-  IonMenuButton,
-  IonItem,
-  IonLabel,
-  IonInput,
-  IonSelect,
-  IonSelectOption,
-  IonTextarea,
-  IonDatetime,
-  IonText,
-  IonButton,
-  IonIcon,
-  IonProgressBar
-} from '@ionic/vue';
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { db, auth, storage } from '../firebase/FirebaseConfig';
-import { collection, addDoc, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { v4 as uuidv4 } from 'uuid'; // Necesitarás instalar este paquete: npm install uuid
+import {
+  IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
+  IonButtons, IonMenuButton, IonButton, IonIcon,
+  IonSelect, IonSelectOption, IonDatetime
+} from '@ionic/vue'
+import {
+  closeCircle, cloudUploadOutline, addCircleOutline, cameraOutline,
+  homeOutline, gridOutline, layersOutline,
+  searchOutline, notificationsOutline, personOutline
+} from 'ionicons/icons'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { db, auth, storage } from '../firebase/FirebaseConfig'
+import { collection, addDoc, updateDoc } from 'firebase/firestore'
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { v4 as uuidv4 } from 'uuid'
 
-const mostrarCalendarioApertura = ref(false);
-const mostrarCalendarioCierre = ref(false);
-const router = useRouter();
-const cargandoImagenes = ref(false);
-const progresoSubida = ref(0);
-const imagenesPreview = ref([]);
-const imagenesSubidas = ref([]);
+const router = useRouter()
 
-// Añadir este método de formateo de fecha
-const mostrarFecha = (fechaStr) => {
-  if (!fechaStr) return '';
-  
-  // Convertir de formato ISO a DD/MM/YYYY
-  const fecha = new Date(fechaStr);
-  const dia = String(fecha.getDate()).padStart(2, '0');
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-  const anio = fecha.getFullYear();
-  
-  return `${dia}/${mes}/${anio}`;
-};
+const categoriasList = [
+  { value: 'Tecnología',            label: 'Tecnología',       icon: 'laptop-outline' },
+  { value: 'Autos y Motos',         label: 'Autos y Motos',    icon: 'car-outline' },
+  { value: 'Ropa',                  label: 'Ropa',             icon: 'shirt-outline' },
+  { value: 'Inmuebles',             label: 'Inmuebles',        icon: 'home-outline' },
+  { value: 'Hogar y Decoracion',    label: 'Hogar',            icon: 'leaf-outline' },
+  { value: 'Industrial y Maquinaria', label: 'Industrial',     icon: 'construct-outline' },
+  { value: 'otra',                  label: 'Otra',             icon: 'add-circle-outline' },
+]
+const navigate = (path) => router.push(path)
 
-const onDateChangeApertura = (event) => {
-  producto.value.fechaApertura = event.detail.value;
-  mostrarCalendarioApertura.value = false;
-};
+const mostrarCalendarioApertura = ref(false)
+const mostrarCalendarioCierre = ref(false)
+const cargandoImagenes = ref(false)
+const progresoSubida = ref(0)
+const imagenesPreview = ref([])
 
-const onDateChangeCierre = (event) => {
-  producto.value.fechaCierre = event.detail.value;
-  mostrarCalendarioCierre.value = false;
-};
-
-// Generar horas disponibles de 0 a 23
-const horasDisponibles = Array.from({length: 24}, (_, i) => 
-  i.toString().padStart(2, '0')
-);
+const horasDisponibles = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
 
 const producto = ref({
-  nombre: '',
-  categoria: '',
-  nuevaCategoria: '',
-  descripcion: '',
-  fotos: [],
-  fechaApertura: null,
-  horaApertura: '',
-  fechaCierre: null,
-  horaCierre: '',
-  precioBase: null,
-  precioVentaInmediata: null
-});
+  nombre: '', categoria: '', nuevaCategoria: '', descripcion: '',
+  fotos: [], fechaApertura: null, horaApertura: '',
+  fechaCierre: null, horaCierre: '', precioBase: null, precioVentaInmediata: null
+})
 
 const formularioValido = computed(() => {
-  const categoriaValida = producto.value.categoria !== 'otra' || 
-    (producto.value.categoria === 'otra' && producto.value.nuevaCategoria.trim() !== '');
+  const catOk = producto.value.categoria !== 'otra' ||
+    producto.value.nuevaCategoria.trim() !== ''
+  return producto.value.nombre && producto.value.categoria && catOk &&
+    producto.value.descripcion && producto.value.fechaApertura &&
+    producto.value.horaApertura && producto.value.fechaCierre &&
+    producto.value.horaCierre && producto.value.precioBase !== null &&
+    producto.value.precioVentaInmediata !== null
+})
 
-  return producto.value.nombre && 
-         producto.value.categoria && 
-         categoriaValida &&
-         producto.value.descripcion && 
-         producto.value.fechaApertura && 
-         producto.value.horaApertura &&
-         producto.value.fechaCierre && 
-         producto.value.horaCierre &&
-         producto.value.precioBase !== null &&
-         producto.value.precioVentaInmediata !== null &&
-         producto.value.fotos.length > 0; // Ahora requerimos al menos una foto
-});
+const mostrarFecha = (fechaStr) => {
+  if (!fechaStr) return ''
+  const f = new Date(fechaStr)
+  return `${String(f.getDate()).padStart(2,'0')}/${String(f.getMonth()+1).padStart(2,'0')}/${f.getFullYear()}`
+}
+
+const onDateChangeApertura = (e) => { producto.value.fechaApertura = e.detail.value; mostrarCalendarioApertura.value = false }
+const onDateChangeCierre = (e) => { producto.value.fechaCierre = e.detail.value; mostrarCalendarioCierre.value = false }
 
 const eliminarImagenPreview = (index) => {
-  imagenesPreview.value.splice(index, 1);
-  producto.value.fotos.splice(index, 1);
-};
+  imagenesPreview.value.splice(index, 1)
+  producto.value.fotos.splice(index, 1)
+}
+
+const MAX_FOTOS = 3
 
 const cargarImagenes = (event) => {
-  // Forzar conversión de FileList a array
-  const archivos = Array.from(event.target.files);
-  
-  console.log('Archivos seleccionados:', archivos);
-  console.log('Número de archivos:', archivos.length);
+  const archivos = Array.from(event.target.files)
+  if (!archivos.length) return
 
-  // Verificar si se seleccionaron archivos
-  if (archivos.length > 0) {
-    // Vaciar las fotos existentes si las hay
-    producto.value.fotos = [];
-    imagenesPreview.value = [];
-    
-    // Guardar los archivos
-    producto.value.fotos = archivos;
+  const espacioDisponible = MAX_FOTOS - producto.value.fotos.length
+  const nuevos = archivos.slice(0, espacioDisponible)
 
-    // Crear previsualizaciones para las imágenes
-    archivos.forEach(archivo => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imagenesPreview.value.push(e.target.result);
-      };
-      reader.readAsDataURL(archivo);
-    });
+  nuevos.forEach(archivo => {
+    producto.value.fotos.push(archivo)
+    const reader = new FileReader()
+    reader.onload = (e) => imagenesPreview.value.push(e.target.result)
+    reader.readAsDataURL(archivo)
+  })
 
-    // Detalles de cada archivo
-    archivos.forEach((archivo, index) => {
-      console.log(`Archivo ${index + 1}:`, {
-        nombre: archivo.name,
-        tamaño: archivo.size,
-        tipo: archivo.type
-      });
-    });
-  }
-};
+  // Reset input para permitir re-selección
+  event.target.value = ''
+}
 
 const subirImagenes = async (userId, productoId) => {
-  const fotos = producto.value.fotos;
-  const totalFotos = fotos.length;
-  let fotosSubidas = 0;
-  const urlsImagenes = [];
+  const fotos = producto.value.fotos
+  const total = fotos.length
+  let subidas = 0
+  const urls = []
 
   return new Promise((resolve, reject) => {
-    if (fotos.length === 0) {
-      resolve([]);
-      return;
+    if (!fotos.length) { resolve([]); return }
+    fotos.forEach((foto, index) => {
+      const ext = foto.name.split('.').pop()
+      const nombre = `${uuidv4()}.${ext}`
+      const imgRef = storageRef(storage, `productos/${userId}/${productoId}/${nombre}`)
+      const tarea = uploadBytesResumable(imgRef, foto)
+      tarea.on('state_changed',
+        (snap) => {
+          progresoSubida.value = (subidas / total) + (snap.bytesTransferred / snap.totalBytes / total)
+        },
+        reject,
+        async () => {
+          const url = await getDownloadURL(tarea.snapshot.ref)
+          urls.push({ url, nombre: foto.name, path: `productos/${userId}/${productoId}/${nombre}` })
+          subidas++
+          if (subidas === total) resolve(urls)
+        }
+      )
+    })
+  })
+}
+
+const resetForm = () => {
+  producto.value = {
+    nombre: '', categoria: '', nuevaCategoria: '', descripcion: '',
+    fotos: [], fechaApertura: null, horaApertura: '',
+    fechaCierre: null, horaCierre: '', precioBase: null, precioVentaInmediata: null
+  }
+  imagenesPreview.value = []
+}
+
+const cancelar = () => { resetForm(); router.push('/home') }
+
+const crearProducto = async () => {
+  if (!auth.currentUser) return
+  try {
+    cargandoImagenes.value = true
+    progresoSubida.value = 0
+
+    const categoriaFinal = producto.value.categoria === 'otra'
+      ? producto.value.nuevaCategoria : producto.value.categoria
+
+    const fAp = new Date(producto.value.fechaApertura)
+    fAp.setHours(parseInt(producto.value.horaApertura), 0, 0)
+    const fCi = new Date(producto.value.fechaCierre)
+    fCi.setHours(parseInt(producto.value.horaCierre), 0, 0)
+
+    const fmt = (f) => {
+      const p = (n) => String(n).padStart(2,'0')
+      return `${f.getFullYear()}-${p(f.getMonth()+1)}-${p(f.getDate())}T${p(f.getHours())}:${p(f.getMinutes())}:00.000`
     }
 
-    fotos.forEach((foto, index) => {
-      // Crear nombre único para cada imagen
-      const extension = foto.name.split('.').pop();
-      const nombreArchivo = `${uuidv4()}.${extension}`;
-      
-      // Crear referencia para guardar en Firebase Storage
-      const imagenRef = storageRef(storage, `productos/${userId}/${productoId}/${nombreArchivo}`);
-      
-      // Iniciar la subida
-      const tareaSubida = uploadBytesResumable(imagenRef, foto);
-      
-      // Monitorear el progreso de la subida
-      tareaSubida.on('state_changed', 
-        (snapshot) => {
-          // Calcular progreso total de todas las imágenes
-          const progresoActual = snapshot.bytesTransferred / snapshot.totalBytes;
-          const progresoPorImagen = progresoActual / totalFotos;
-          const progresoAnterior = (fotosSubidas / totalFotos);
-          
-          progresoSubida.value = progresoAnterior + progresoPorImagen;
-        }, 
-        (error) => {
-          console.error("Error al subir imagen:", error);
-          reject(error);
-        }, 
-        async () => {
-          // Obtener URL de la imagen subida
-          try {
-            const downloadURL = await getDownloadURL(tareaSubida.snapshot.ref);
-            urlsImagenes.push({
-              url: downloadURL,
-              nombre: foto.name,
-              path: `productos/${userId}/${productoId}/${nombreArchivo}`
-            });
-            
-            fotosSubidas++;
-            console.log(`Imagen ${index + 1} subida correctamente. URL:`, downloadURL);
-            
-            // Si todas las imágenes se han subido, resolver la promesa
-            if (fotosSubidas === totalFotos) {
-              resolve(urlsImagenes);
-            }
-          } catch (error) {
-            console.error("Error al obtener URL de imagen:", error);
-            reject(error);
-          }
-        }
-      );
-    });
-  });
-};
-
-const cancelar = () => {
-  // Resetear el formulario
-  producto.value = {
-    nombre: '',
-    categoria: '',
-    nuevaCategoria: '',
-    descripcion: '',
-    fotos: [],
-    fechaApertura: null,
-    horaApertura: '',
-    fechaCierre: null,
-    horaCierre: '',
-    precioBase: null,
-    precioVentaInmediata: null
-  };
-
-  // Limpiar previsualizaciones
-  imagenesPreview.value = [];
-
-  // Resetear input de archivos
-  const fileInput = document.querySelector('ion-input[type="file"]');
-  if (fileInput) {
-    // Método más robusto para limpiar el input
-    fileInput.value = null;
-    
-    // Trigger change event
-    const event = new Event('change', { bubbles: true });
-    fileInput.dispatchEvent(event);
-  }
-
-  router.push('/home');
-};
-
-// Función principal para crear un producto
-const crearProducto = async () => {
-  if (!auth.currentUser) {
-    console.error("Usuario no autenticado");
-    return;
-  }
-
-  try {
-    cargandoImagenes.value = true;
-    progresoSubida.value = 0;
-
-    const categoriaFinal = producto.value.categoria === 'otra' 
-      ? producto.value.nuevaCategoria 
-      : producto.value.categoria;
-
-    // Formatear las fechas sin convertir a UTC (evitar toISOString)
-    // Crear objetos Date para manipulación
-    const fechaAperturaObj = new Date(producto.value.fechaApertura);
-    fechaAperturaObj.setHours(parseInt(producto.value.horaApertura), 0, 0);
-    
-    const fechaCierreObj = new Date(producto.value.fechaCierre);
-    fechaCierreObj.setHours(parseInt(producto.value.horaCierre), 0, 0);
-    
-    // Formatear fechas para almacenamiento manteniendo la zona horaria local
-    // Formato: "YYYY-MM-DDTHH:MM:SS.sss" (sin la Z del final que indica UTC)
-    const formatearFechaHora = (fecha) => {
-      const año = fecha.getFullYear();
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-      const dia = String(fecha.getDate()).padStart(2, '0');
-      const hora = String(fecha.getHours()).padStart(2, '0');
-      const minutos = String(fecha.getMinutes()).padStart(2, '0');
-      const segundos = String(fecha.getSeconds()).padStart(2, '0');
-      
-      // Formato para almacenamiento en Firebase (mantiene compatibilidad con el resto del sistema)
-      return `${año}-${mes}-${dia}T${hora}:${minutos}:${segundos}.000`;
-    };
-    
-    // Formato simple para visualización
-    const formatearFechaHoraSimple = (fecha) => {
-      const dia = String(fecha.getDate()).padStart(2, '0');
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-      const año = fecha.getFullYear();
-      const hora = String(fecha.getHours()).padStart(2, '0');
-      const minutos = String(fecha.getMinutes()).padStart(2, '0');
-      
-      return `${dia}/${mes}/${año} ${hora}:${minutos}`;
-    };
-
-    // Generar los formatos de fecha requeridos
-    const fechaAperturaFormateada = formatearFechaHora(fechaAperturaObj);
-    const fechaCierreFormateada = formatearFechaHora(fechaCierreObj);
-    
-    // Primero crear el documento en Firestore para obtener el ID
     const docRef = await addDoc(collection(db, 'products'), {
       userId: auth.currentUser.uid,
       nombre: producto.value.nombre,
@@ -502,90 +419,263 @@ const crearProducto = async () => {
       categoria: categoriaFinal,
       precioBase: producto.value.precioBase,
       precioVentaInmediata: producto.value.precioVentaInmediata,
-      fechaApertura: fechaAperturaFormateada,
-      fechaCierre: fechaCierreFormateada,
+      fechaApertura: fmt(fAp),
+      fechaCierre: fmt(fCi),
       creadoEn: new Date().toISOString(),
-      estado: "Disponible",
-      imagenes: [] // Inicialmente vacío, se actualizará después
-    });
+      estado: 'Disponible',
+      imagenes: []
+    })
 
-    // Ahora subir las imágenes a Storage
-    const imagenes = await subirImagenes(auth.currentUser.uid, docRef.id);
+    const imagenes = await subirImagenes(auth.currentUser.uid, docRef.id)
+    await updateDoc(docRef, { imagenes })
 
-    // Actualizar el documento con las URLs de las imágenes
-    const updateData = {
-      imagenes: imagenes
-    };
-
-    // Actualizar el documento en Firestore con las referencias de imágenes
-    await updateDoc(docRef, updateData);
-
-    // Crear una notificación global en Firestore
     await addDoc(collection(db, 'notificaciones'), {
       mensaje: `Nuevo producto publicado: ${producto.value.nombre}`,
       timestamp: new Date().toISOString(),
       productoId: docRef.id,
-      userId: auth.currentUser?.uid
-    });
+      userId: auth.currentUser.uid
+    })
 
-    console.log("Producto creado exitosamente con imágenes:", imagenes);
-
-    // Limpiar el formulario
-    producto.value = {
-      nombre: '',
-      categoria: '',
-      nuevaCategoria: '',
-      descripcion: '',
-      fotos: [],
-      fechaApertura: null,
-      horaApertura: '',
-      fechaCierre: null,
-      horaCierre: '',
-      precioBase: null,
-      precioVentaInmediata: null
-    };
-
-    // Limpiar previsualizaciones
-    imagenesPreview.value = [];
-
-    // Limpiar input de archivos manualmente
-    const fileInput = document.querySelector('ion-input[type="file"]');
-    if (fileInput) {
-      fileInput.value = null;
-      const event = new Event('change', { bubbles: true });
-      fileInput.dispatchEvent(event);
-    }
-
-    // Redirigir a la página de mis publicaciones
-    router.push('/mis-publicaciones');
-  } catch (error) {
-    console.error("Error al guardar producto:", error);
+    resetForm()
+    router.push('/mis-publicaciones')
+  } catch (e) {
+    console.error('Error al guardar producto:', e)
   } finally {
-    cargandoImagenes.value = false;
+    cargandoImagenes.value = false
   }
-};
+}
 </script>
 
 <style scoped>
-.crear-producto-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding-bottom: 20px;
+.agregar-header { --background: #fff; border-bottom: 1px solid #eee; }
+.agregar-toolbar { --background: #fff; --color: #111; --min-height: 60px; padding: 0 8px; }
+.agregar-title { font-size: 1rem; font-weight: 800; color: #111; }
+.menu-btn { --color: #111; }
+.cancel-btn { --color: #aaa; font-size: 0.85rem; }
+.agregar-content { --background: #F5F5F5; }
+
+/* Hero */
+.hero-section { background: #fff; padding: 20px 20px 18px; margin-bottom: 10px; }
+.hero-title { font-size: 1.6rem; font-weight: 900; color: #111; line-height: 1.2; margin: 0 0 4px; }
+.hero-accent { color: #F5A623; }
+.hero-sub { font-size: 0.82rem; color: #aaa; margin: 0; }
+
+/* Form */
+.form-wrap { padding: 0 16px; }
+
+.form-section {
+  background: #fff; border-radius: 18px;
+  padding: 18px 16px; margin-bottom: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
-.botones-container {
+.form-section-title {
+  font-size: 0.78rem; font-weight: 800;
+  color: #111; letter-spacing: 0.05em;
+  text-transform: uppercase; margin: 0 0 16px;
+  padding-bottom: 10px; border-bottom: 1px solid #F5F5F5;
+}
+
+/* Fields */
+.field-group { margin-bottom: 14px; }
+.field-group:last-child { margin-bottom: 0; }
+
+.field-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; font-weight: 700;
+  color: #555; margin-bottom: 6px;
+}
+
+.field-badge {
+  font-size: 0.6rem; font-weight: 700;
+  background: #F5F5F5; color: #aaa;
+  padding: 2px 6px; border-radius: 4px;
+}
+.field-badge.orange { background: #FFF3E0; color: #F5A623; }
+
+.field-input {
+  width: 100%; padding: 12px 14px;
+  background: #F9F9F9; border: 1.5px solid #eee;
+  border-radius: 12px; font-size: 0.88rem;
+  color: #111; outline: none;
+  box-sizing: border-box; font-family: inherit;
+  transition: border-color 0.2s;
+}
+.field-input:focus { border-color: #F5A623; }
+
+.field-textarea {
+  width: 100%; padding: 12px 14px;
+  background: #F9F9F9; border: 1.5px solid #eee;
+  border-radius: 12px; font-size: 0.88rem;
+  color: #111; outline: none; resize: none;
+  box-sizing: border-box; font-family: inherit;
+  transition: border-color 0.2s;
+}
+.field-textarea:focus { border-color: #F5A623; }
+
+.field-select {
+  background: #F9F9F9; border: 1.5px solid #eee;
+  border-radius: 12px; padding: 4px 14px;
+  --placeholder-color: #bbb;
+  width: 100%;
+}
+
+/* Fechas grid 2 cols */
+.fechas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Imágenes */
+.imagenes-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 12px;
+}
+
+.img-preview-wrap { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; }
+.img-preview { width: 100%; height: 100%; object-fit: cover; }
+.img-remove-btn {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(0,0,0,0.5); border: none;
+  border-radius: 50%; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff; font-size: 0.9rem;
+}
+
+.upload-area {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 6px;
+  border: 2px dashed #e0e0e0; border-radius: 14px;
+  padding: 24px 16px; cursor: pointer;
+  transition: border-color 0.2s; text-align: center;
+}
+.upload-area:active { border-color: #F5A623; }
+.upload-area.has-images { padding: 14px; }
+.upload-icon { font-size: 1.8rem; color: #F5A623; }
+.upload-text { font-size: 0.85rem; font-weight: 700; color: #111; }
+.upload-sub { font-size: 0.7rem; color: #aaa; }
+
+.progreso-wrap { margin-top: 10px; }
+.progreso-bar { height: 6px; background: #F5F5F5; border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+.progreso-fill { height: 100%; background: #F5A623; border-radius: 3px; transition: width 0.2s; }
+.progreso-text { font-size: 0.72rem; color: #aaa; }
+
+/* ── Categorías chips ──────────────────────────────── */
+.cat-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cat-chip {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  background: #F9F9F9;
+  border: 1.5px solid #eee;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #555;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cat-chip:active { transform: scale(0.97); }
+
+.cat-chip.selected {
+  background: #FFF8EE;
+  border-color: #F5A623;
+  color: #111;
+  font-weight: 700;
+}
+
+.cat-chip-icon {
+  font-size: 1rem;
+  color: #aaa;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.cat-chip.selected .cat-chip-icon { color: #F5A623; }
+
+/* ── Fotos slots ───────────────────────────────────── */
+.fotos-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
+  margin-bottom: 8px;
 }
 
-.botones-container ion-button {
-  flex: 1;
+.foto-slot {
+  aspect-ratio: 1;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
 }
 
-.imagen-preview {
-  max-width: 150px; /* Limita el ancho máximo de la imagen */
-  max-height: 150px; /* Limita la altura máxima de la imagen */
-  object-fit: cover; /* Mantiene la relación de aspecto y recorta la imagen si es necesario */
-  margin: 5px; /* Añade un pequeño espacio entre las imágenes */
+.foto-slot.filled {
+  background: #f0f0f0;
 }
+
+.slot-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+.slot-remove {
+  position: absolute; top: 5px; right: 5px;
+  width: 24px; height: 24px;
+  background: rgba(0,0,0,0.55);
+  border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff; font-size: 0.95rem;
+  z-index: 2;
+}
+
+.slot-num {
+  position: absolute; bottom: 5px; left: 7px;
+  font-size: 0.6rem; font-weight: 800;
+  color: rgba(255,255,255,0.8);
+}
+
+.foto-slot.empty {
+  background: #F9F9F9;
+  border: 2px dashed #e0e0e0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.foto-slot.empty:active { border-color: #F5A623; }
+
+.slot-add-icon { font-size: 1.4rem; color: #ccc; }
+.slot-add-text { font-size: 0.6rem; font-weight: 600; color: #bbb; }
+
+.fotos-hint {
+  font-size: 0.7rem; color: #bbb;
+  margin: 0 0 4px; text-align: center;
+}
+
+/* Submit */
+.submit-wrap { margin-top: 4px; }
+.submit-btn {
+  width: 100%; padding: 16px;
+  background: #111; color: #fff;
+  border: none; border-radius: 16px;
+  font-size: 0.95rem; font-weight: 800;
+  display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  cursor: pointer; transition: background 0.2s;
+}
+.submit-btn:active { background: #333; }
+.submit-btn.disabled { background: #ccc; cursor: not-allowed; }
+.submit-btn ion-icon { font-size: 1.1rem; pointer-events: none; }
+
+/* Bottom Nav */
+.bottom-nav { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; background: #fff; border-top: 1px solid #eee; display: flex; align-items: center; justify-content: space-around; z-index: 999; box-shadow: 0 -4px 20px rgba(0,0,0,0.07); }
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: 1; height: 100%; color: #aaa; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+.nav-item ion-icon { font-size: 1.3rem; pointer-events: none; }
+.nav-item span { font-size: 0.48rem; font-weight: 700; letter-spacing: 0.06em; pointer-events: none; }
+.nav-item.active { color: #F5A623; }
 </style>

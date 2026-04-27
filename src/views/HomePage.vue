@@ -165,11 +165,11 @@ import {
   shieldCheckmark
 } from 'ionicons/icons'
 
-import { onMounted, ref, computed, onUnmounted } from 'vue'
-import { collection, getDocs } from 'firebase/firestore'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { collection, getDocs, onSnapshot, getFirestore, doc } from 'firebase/firestore'
 import { db } from '@/firebase/FirebaseConfig'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
-import { getFirestore, doc, onSnapshot } from 'firebase/firestore'
+
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -258,10 +258,13 @@ onMounted(async () => {
     const loading = await loadingController.create({ message: 'Cargando...', duration: 8000 })
     await loading.present()
 
-    const querySnapshot = await getDocs(collection(db, 'products'))
-    products.value = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-
     await loading.dismiss()
+
+    // onSnapshot para actualización en tiempo real
+    const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
+      products.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    })
+    onUnmounted(() => unsubProducts())
     startCountdown()
   } catch (error) {
     console.error('Error al cargar productos:', error)
