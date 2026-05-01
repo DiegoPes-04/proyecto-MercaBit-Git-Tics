@@ -7,7 +7,7 @@ import { getToken, onMessage } from 'firebase/messaging';
 // @ts-ignore
 import { messaging } from '../firebase/FirebaseConfig';
 // @ts-ignore
-import { db } from '../firebase/FirebaseConfig'; // asegúrate de que la ruta sea correcta
+import { db } from '../firebase/FirebaseConfig';
 
 class NotificationService {
   private vapidKey = 'BHYPMBeNadDFf05IRAfcdIASTjjgtHFpU3EzW8OI6A1r23m4OCUpst64QdNsZYOZK-MGY5LLk6pF5wOoZejsD64';
@@ -54,7 +54,20 @@ class NotificationService {
 
   private async initializeWeb() {
     try {
-      await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      // Verificar si el navegador soporta service workers y notificaciones
+      if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+        console.warn('Este navegador no soporta notificaciones push');
+        return;
+      }
+
+      // Registrar service worker con manejo de error silencioso
+      let swRegistration;
+      try {
+        swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      } catch (swError) {
+        console.warn('Service worker no disponible en desarrollo:', swError);
+        return;
+      }
 
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
@@ -62,10 +75,22 @@ class NotificationService {
         return;
       }
 
-      const token = await getToken(messaging, {
-        vapidKey: this.vapidKey,
-        serviceWorkerRegistration: await navigator.serviceWorker.ready,
-      });
+      // Obtener token con manejo de error silencioso para app-offline
+      let token;
+      try {
+        token = await getToken(messaging, {
+          vapidKey: this.vapidKey,
+          serviceWorkerRegistration: await navigator.serviceWorker.ready,
+        });
+      } catch (tokenError: any) {
+        // Error app-offline es normal en desarrollo, no interrumpir la app
+        if (tokenError?.code === 'installations/app-offline' || 
+            tokenError?.message?.includes('app-offline')) {
+          console.warn('FCM no disponible offline — notificaciones push desactivadas');
+          return;
+        }
+        throw tokenError;
+      }
 
       if (token) {
         console.log('Token web:', token);
@@ -78,23 +103,27 @@ class NotificationService {
       }
 
     } catch (error) {
-      console.error('Error en inicialización web:', error);
+      // Error silencioso — no interrumpir el flujo de la app
+      console.warn('Notificaciones web no disponibles:', error);
     }
   }
 
   private async saveTokenToDatabase(token: string) {
-    const auth = getAuth();
-    const user = auth.currentUser;
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
 
-    if (!user) {
-      console.warn("No hay usuario autenticado.");
-      return;
+      if (!user) {
+        console.warn("No hay usuario autenticado.");
+        return;
+      }
+
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, { fcmToken: token }, { merge: true });
+      console.log("Token guardado para el usuario:", user.uid);
+    } catch (error) {
+      console.warn('Error guardando token:', error);
     }
-
-    const userRef = doc(db, "users", user.uid);
-    await setDoc(userRef, { fcmToken: token }, { merge: true });
-
-    console.log("Token guardado para el usuario:", user.uid);
   }
 
   private showNotification(payload: any) {

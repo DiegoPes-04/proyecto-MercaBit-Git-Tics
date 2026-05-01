@@ -34,86 +34,86 @@
 
       <!-- Items de navegación -->
       <ion-list class="nav-list" lines="none">
-        <ion-menu-toggle auto-hide="false">
+        <div>
 
-          <ion-item router-link="/home" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/home')">
             <div class="nav-icon-wrap orange" slot="start">
               <ion-icon :icon="homeOutline" />
             </div>
             <ion-label>Inicio</ion-label>
           </ion-item>
 
-          <ion-item router-link="/Notification" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/Notification')">
             <div class="nav-icon-wrap blue" slot="start">
               <ion-icon :icon="notificationsOutline" />
             </div>
             <ion-label>Notificaciones</ion-label>
           </ion-item>
 
-          <ion-item router-link="/MisCalificaciones" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/MisCalificaciones')">
             <div class="nav-icon-wrap green" slot="start">
               <ion-icon :icon="clipboardOutline" />
             </div>
             <ion-label>Mis calificaciones</ion-label>
           </ion-item>
 
-          <ion-item router-link="/MisCompras" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/Miscompras')">
             <div class="nav-icon-wrap purple" slot="start">
               <ion-icon :icon="cartOutline" />
             </div>
             <ion-label>Mis Compras</ion-label>
           </ion-item>
 
-          <ion-item router-link="/ofertas-realizadas" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/ofertas-realizadas')">
             <div class="nav-icon-wrap teal" slot="start">
               <ion-icon :icon="checkmarkCircleOutline" />
             </div>
             <ion-label>Ofertas realizadas</ion-label>
           </ion-item>
 
-          <ion-item router-link="/agregar-producto" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/agregar-producto')">
             <div class="nav-icon-wrap orange" slot="start">
               <ion-icon :icon="addOutline" />
             </div>
             <ion-label>Agregar producto</ion-label>
           </ion-item>
 
-          <ion-item router-link="/mis-publicaciones" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/mis-publicaciones')">
             <div class="nav-icon-wrap blue" slot="start">
               <ion-icon :icon="bagCheckOutline" />
             </div>
             <ion-label>Mis publicaciones</ion-label>
           </ion-item>
 
-          <ion-item router-link="/categorias" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/categorias')">
             <div class="nav-icon-wrap green" slot="start">
               <ion-icon :icon="folderOutline" />
             </div>
             <ion-label>Categorías</ion-label>
           </ion-item>
 
-          <ion-item router-link="/explorar" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/explorar')">
             <div class="nav-icon-wrap orange" slot="start">
               <ion-icon :icon="searchOutline" />
             </div>
             <ion-label>Explorar</ion-label>
           </ion-item>
 
-          <ion-item router-link="/mi-cuenta" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/mi-cuenta')">
             <div class="nav-icon-wrap purple" slot="start">
               <ion-icon :icon="personOutline" />
             </div>
             <ion-label>Mi Cuenta</ion-label>
           </ion-item>
 
-          <ion-item router-link="/accerca-de-la-app" router-direction="root" class="nav-item">
+          <ion-item button class="nav-item" @click="navegar('/accerca-de-la-app')">
             <div class="nav-icon-wrap teal" slot="start">
               <ion-icon :icon="informationCircleOutline" />
             </div>
             <ion-label>Acerca de la App</ion-label>
           </ion-item>
 
-        </ion-menu-toggle>
+        </div>
       </ion-list>
 
       <!-- Divider -->
@@ -136,10 +136,10 @@ import {
   IonMenu,
   IonContent,
   IonList,
-  IonMenuToggle,
   IonItem,
   IonIcon,
   IonLabel,
+  menuController,
 } from '@ionic/vue';
 import {
   homeOutline,
@@ -162,6 +162,13 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 
 const router = useRouter();
+
+const navegar = (path) => {
+  menuController.close()
+  setTimeout(() => {
+    router.push(path)
+  }, 250)
+};
 const userName = ref('Usuario');
 const userPhoto = ref('/img/User.jpg');
 let unsubscribeUserListener = null;

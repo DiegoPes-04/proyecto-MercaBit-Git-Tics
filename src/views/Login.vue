@@ -117,6 +117,7 @@ import { ref } from 'vue';
 import { loginUser } from '@/services/authService';
 import { useRouter } from 'vue-router';
 
+
 export default {
   name: 'LoginVendedor',
   components: { IonPage, IonContent },
@@ -147,9 +148,16 @@ export default {
       isLoading.value = true;
       try {
         const response = await loginUser(email.value, password.value);
+        console.log('🚀 Response completo:', JSON.stringify(response));
+        console.log('🚀 Rol:', response.rol);
 
         if (response.success) {
-          router.push({ path: '/home' }).then(() => window.location.reload());
+          // El rol ya viene en la respuesta de loginUser
+          if (response.rol === 'admin') {
+            window.location.href = '/admin/dashboard';
+          } else {
+            window.location.href = '/home';
+          }
         } else {
           showError.value    = true;
           errorMessage.value = response.resend
@@ -352,7 +360,6 @@ export default {
   color: white;
 }
 
-/* Spinner de carga */
 .btn-login__spinner {
   width: 22px;
   height: 22px;

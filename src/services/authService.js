@@ -1,62 +1,75 @@
 // src/services/authService.js
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendEmailVerification, sendPasswordResetEmail } from "firebase/auth";
-import { getFirestore, doc, setDoc, updateDoc, serverTimestamp, setLogLevel } from "firebase/firestore";
-import { app } from "@/firebase/FirebaseConfig"; // Importa tu configuración de Firebase
-// Inicializamos servicios
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendEmailVerification,
+  sendPasswordResetEmail
+} from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp
+} from "firebase/firestore";
+import { app } from "@/firebase/FirebaseConfig";
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ACTIVA LOGS DETALLADOS EN CONSOLA 
-setLogLevel("debug");
-
-// Función para registrar un nuevo usuario
+// ── Registrar usuario ─────────────────────────────
 export const registerUser = async (name, telefono, email, password) => {
   try {
     if (!name || !telefono || !email || !password) {
       return { success: false, message: "Por favor completa todos los campos" };
     }
 
-    console.log("Datos enviados a Firebase:", { name, telefono, email });
-
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Esperar a que Firebase lo reconozca como autenticado
     await user.getIdToken(true);
-    console.log("Usuario creado con UID:", user.uid);
 
     const userDocRef = doc(db, "users", user.uid);
     await setDoc(userDocRef, {
       name: String(name),
       telefono: String(telefono),
       email: String(email),
-      saldo: 10000000, // Saldo inicial por defecto
+      saldo: 10000000,
+      rol: "usuario", // rol por defecto
       createdAt: new Date(),
       lastLogin: new Date(),
     });
 
-    // Enviar correo de verificación
     await sendEmailVerification(user);
 
     return {
       success: true,
       message: "Registro exitoso. Revisa tu correo y verifica tu cuenta antes de iniciar sesión.",
     };
-
   } catch (error) {
-    console.error("🔥 Error en registerUser:", error);
+    console.error("Error en registerUser:", error);
     return { success: false, message: error.message };
   }
 };
 
-// Funcion para verificar el correo electrónico y Login
+// ── Login ─────────────────────────────────────────
 export const loginUser = async (email, password) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    const isAdmin = email === "admin@mercabit.com"; // <-- Tu correo de administrador
+    // Verificar rol en Firestore para saber si es admin
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    console.log("🔍 UID:", user.uid);
+    console.log("🔍 Firestore data:", userSnap.data());
+    const rol = userSnap.data()?.rol || "usuario";
+    console.log("🔍 Rol detectado:", rol);
+    const isAdmin = rol === "admin";
 
+    // Admins no necesitan verificar email
     if (!user.emailVerified && !isAdmin) {
       return {
         success: false,
@@ -65,30 +78,31 @@ export const loginUser = async (email, password) => {
       };
     }
 
-    return { success: true, user };
+    // Guardar rol en localStorage para acceso rápido
+    localStorage.setItem('userRol', rol);
+    localStorage.setItem('userUid', user.uid);
+    return { success: true, user, rol };
   } catch (error) {
-    console.error("🔥 Error al iniciar sesión:", error);
-    return {
-      success: false,
-      message: error.message,
-    };
-  }
-};
-
-//Funcion para actualizar contraseña
-export const resetPassword = async (email) => {
-  try {
-    await sendPasswordResetEmail(auth, email);
-    return {
-      success: true, message: "Si existe una cuenta asociada a este correo, recibirás un enlace para restablecer tu contraseña."
-    };
-  } catch (error) {
-    console.error("Error al enviar el correo de recuperación:", error);
+    console.error("Error al iniciar sesión:", error);
     return { success: false, message: error.message };
   }
 };
 
-// Función para cerrar sesión
+// ── Reset password ────────────────────────────────
+export const resetPassword = async (email) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    return {
+      success: true,
+      message: "Si existe una cuenta asociada a este correo, recibirás un enlace para restablecer tu contraseña."
+    };
+  } catch (error) {
+    console.error("Error al enviar correo de recuperación:", error);
+    return { success: false, message: error.message };
+  }
+};
+
+// ── Logout ────────────────────────────────────────
 export const logoutUser = async () => {
   try {
     await signOut(auth);

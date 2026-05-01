@@ -8,8 +8,13 @@
         @error="onImgError"
       />
       <!-- Badge verificado si aplica -->
+      <!-- Badge mi producto -->
+      <span class="mi-producto-badge" v-if="esMiProducto">
+        <ion-icon :icon="personOutline" /> TU PUBLICACIÓN
+      </span>
+
       <!-- Badge de estado -->
-      <span class="verified-badge" v-if="producto.verificado && producto.estado !== 'Finalizada'">
+      <span class="verified-badge" v-if="producto.verificado && producto.estado !== 'Finalizada' && !esMiProducto">
         <ion-icon :icon="checkmarkCircle" /> VERIFICADO
       </span>
       <span class="estado-badge-finalizada" v-if="producto.estado === 'Finalizada'">
@@ -46,12 +51,18 @@
 
 <script setup>
 import { IonIcon } from '@ionic/vue'
-import { checkmarkCircle, timeOutline } from 'ionicons/icons'
+import { checkmarkCircle, timeOutline, personOutline } from 'ionicons/icons'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
-  producto: { type: Object, required: true }
+  producto: { type: Object, required: true },
+  currentUserId: { type: String, default: null }
 })
+
+const esMiProducto = computed(() =>
+  props.currentUserId && props.producto?.userId === props.currentUserId
+)
 
 const router = useRouter()
 
@@ -126,6 +137,15 @@ function formatoFecha(fecha) {
   font-size: 0.52rem; font-weight: 800;
   letter-spacing: 0.06em; padding: 3px 7px;
   border-radius: 5px;
+}
+
+.mi-producto-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: #1A1D2E; color: #F5A623;
+  font-size: 0.52rem; font-weight: 800;
+  letter-spacing: 0.06em; padding: 3px 7px;
+  border-radius: 5px; display: flex;
+  align-items: center; gap: 3px;
 }
 
 .verified-badge {

@@ -89,7 +89,10 @@
         >
           <div class="card-image-wrap">
             <img :src="getProductImage(product)" class="card-img" :alt="product.nombre || product.name" @error="onImgError" />
-            <span class="verified-badge" v-if="product.verificado">
+            <span class="mi-pub-badge" v-if="product.userId === currentUserId">
+              MÍA
+            </span>
+            <span class="verified-badge" v-else-if="product.verificado">
               <ion-icon :icon="checkmarkCircle" /> VERIFICADO
             </span>
           </div>
@@ -178,6 +181,7 @@ const carouselIndex = ref(0)
 const countdown = ref('00:00:00')
 const hasNotifications = ref(false)
 const userPhoto = ref('/img/User.jpg')
+const currentUserId = ref(null)
 let countdownInterval = null
 
 // ── Helpers ──────────────────────────────────────────
@@ -238,6 +242,7 @@ onMounted(() => {
   const auth = getAuth()
   onAuthStateChanged(auth, (user) => {
     if (user) {
+      currentUserId.value = user.uid
       const firestoreDb = getFirestore()
       const userRef = doc(firestoreDb, 'users', user.uid)
       onSnapshot(userRef, (snap) => {
@@ -253,18 +258,18 @@ onMounted(() => {
 })
 
 // ── Cargar productos ──────────────────────────────────
+let unsubProducts = null
+
 onMounted(async () => {
   try {
     const loading = await loadingController.create({ message: 'Cargando...', duration: 8000 })
     await loading.present()
-
     await loading.dismiss()
 
     // onSnapshot para actualización en tiempo real
-    const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
+    unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
       products.value = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
     })
-    onUnmounted(() => unsubProducts())
     startCountdown()
   } catch (error) {
     console.error('Error al cargar productos:', error)
@@ -273,6 +278,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (countdownInterval) clearInterval(countdownInterval)
+  if (unsubProducts) unsubProducts()
 })
 
 // ── Productos filtrados ───────────────────────────────
@@ -658,6 +664,14 @@ const goToAccount = () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.mi-pub-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: #1A1D2E; color: #F5A623;
+  font-size: 0.52rem; font-weight: 800;
+  letter-spacing: 0.08em; padding: 3px 8px;
+  border-radius: 5px;
 }
 
 .verified-badge {

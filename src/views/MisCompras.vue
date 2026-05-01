@@ -50,6 +50,13 @@
             </div>
           </div>
 
+          <!-- Botón calificar si ya fue entregado -->
+          <div class="calificar-wrap" v-if="compraActiva.estado?.toLowerCase().includes('entreg')">
+            <button class="calificar-btn-full" @click="navigate(`/add-calification/${compraActiva.id}`)">
+              ⭐ Calificar al vendedor
+            </button>
+          </div>
+
           <!-- Rastreo -->
           <div class="tracking-section">
             <div class="tracking-header">
@@ -82,16 +89,21 @@
         </div>
 
         <div class="historial-list">
-          <div class="historial-item" v-for="compra in historial" :key="compra.id" @click="navigate(`/producto/${compra.productoId}`)">
-            <div class="hist-img-wrap">
+          <div class="historial-item" v-for="compra in historial" :key="compra.id">
+            <div class="hist-img-wrap" @click="navigate(`/producto/${compra.productoId}`)">
               <img :src="compra.imagen || '/img/imagen-prueba.jpg'" class="hist-img" @error="onImgError" />
             </div>
-            <div class="hist-info">
+            <div class="hist-info" @click="navigate(`/producto/${compra.productoId}`)">
               <h3 class="hist-nombre">{{ compra.nombreProducto }}</h3>
               <p class="hist-fecha">ENTREGADO EL {{ formatFecha(compra.fechaCompra) }}</p>
               <p class="hist-precio">${{ formatPrice(compra.precioTotal) }} <span class="cop">COP</span></p>
             </div>
-            <span class="hist-estado">ENTREGADO</span>
+            <div class="hist-right">
+              <span class="hist-estado">ENTREGADO</span>
+              <button class="calificar-btn" @click="navigate(`/add-calification/${compra.id}`)">
+                ⭐ Calificar
+              </button>
+            </div>
           </div>
         </div>
       </div>

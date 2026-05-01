@@ -42,6 +42,21 @@
           <span class="product-cat">{{ producto.categoria || 'Sin categoría' }}</span>
         </div>
 
+        <!-- Vendedor clickeable -->
+        <div class="vendedor-section" @click="irAlPerfil">
+          <div class="vendedor-avatar-sm">
+            <img v-if="vendedor?.photoURL" :src="vendedor.photoURL" class="vend-avatar-img" />
+            <span v-else>{{ getIniciales(vendedor?.name) }}</span>
+          </div>
+          <div class="vendedor-info-sm">
+            <p class="vendedor-label-sm">PUBLICADO POR</p>
+            <p class="vendedor-nombre-sm">{{ vendedor?.name || 'Vendedor' }}</p>
+          </div>
+          <div class="vendedor-arrow">
+            <ion-icon :icon="chevronForwardOutline" />
+          </div>
+        </div>
+
         <!-- Countdown principal + Timer dinámico -->
         <div class="countdown-card" :class="{ 'timer-urgente': esUrgente }">
           <div class="cd-left">
@@ -101,8 +116,15 @@
           <p class="desc-text">{{ producto.descripcion || 'Sin descripción.' }}</p>
         </div>
 
-        <!-- Hacer oferta -->
-        <div class="section-card oferta-card" v-if="!subastaFinalizada">
+        <!-- Bloqueo si es el vendedor -->
+        <div class="section-card vendedor-block" v-if="esVendedor && !subastaFinalizada">
+          <ion-icon :icon="lockClosedOutline" class="cerrada-icon" />
+          <h3 class="cerrada-title">Esta es tu publicación</h3>
+          <p class="cerrada-sub">No puedes pujar en tus propios productos.</p>
+        </div>
+
+        <!-- Hacer oferta — solo si NO es el vendedor -->
+        <div class="section-card oferta-card" v-if="!subastaFinalizada && !esVendedor">
           <h3 class="section-title">Hacer una oferta</h3>
 
           <div class="oferta-display">
@@ -159,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { doc, getDoc, onSnapshot, collection, addDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase/FirebaseConfig'
@@ -168,7 +190,8 @@ import { actualizarProducto, actualizarCamposProducto } from '@/services/product
 import { IonPage, IonContent, IonIcon } from '@ionic/vue'
 import {
   arrowBackOutline, timerOutline, addOutline,
-  removeOutline, hammerOutline, lockClosedOutline, flashOutline
+  removeOutline, hammerOutline, lockClosedOutline, flashOutline,
+  chevronForwardOutline
 } from 'ionicons/icons'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import 'swiper/css'
@@ -200,9 +223,23 @@ let timerInterval = null
 let countdownInterval = null
 let unsubscribeProducto = null
 
+// ── Vendedor ──────────────────────────────────────────
+const vendedor = ref(null)
+
+// ── Rol del usuario actual ────────────────────────────
+const currentUserId = ref(null)
+const esVendedor = computed(() => {
+  return producto.value && currentUserId.value &&
+    producto.value.userId === currentUserId.value
+})
+
 // ── Lifecycle ─────────────────────────────────────────
 onMounted(() => {
   const id = route.params.id
+
+  // Obtener usuario actual
+  const auth = getAuth()
+  currentUserId.value = auth.currentUser?.uid || null
 
   // Escuchar cambios en tiempo real
   unsubscribeProducto = onSnapshot(doc(db, 'products', id), async (docSnap) => {
@@ -211,6 +248,13 @@ onMounted(() => {
     const data = docSnap.data()
     producto.value = data
     ofertaSugerida.value = Number(data.precioBase || 0) + Number(incremento.value)
+
+    // Cargar datos del vendedor si no los tenemos aún
+    if (data.userId && !vendedor.value) {
+      getDoc(doc(db, 'users', data.userId)).then(snap => {
+        if (snap.exists()) vendedor.value = snap.data()
+      }).catch(() => {})
+    }
     numeroOfertas.value = data.numero_ofertas || 0
     // tieneOfertas si hay ultimaOfertaAt O si hay ofertas registradas
     tieneOfertas.value = !!data.ultimaOfertaAt || (data.numero_ofertas > 0) || data.tieneOfertas
@@ -320,6 +364,18 @@ const formatoMonedaInput = (valor) => {
 
 const onImgError = (e) => { e.target.src = '/img/imagen-prueba.jpg' }
 
+// ── Navegación al perfil ─────────────────────────────
+const irAlPerfil = () => {
+  if (producto.value?.userId) {
+    router.push(`/perfil/${producto.value.userId}`)
+  }
+}
+
+const getIniciales = (nombre) => {
+  if (!nombre) return '?'
+  return nombre.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+}
+
 // ── Controles oferta ──────────────────────────────────
 const incrementarOferta = () => {
   ofertaSugerida.value = Number(ofertaSugerida.value) + Number(incremento.value)
@@ -337,6 +393,10 @@ const CrearOferta = async () => {
   const user = auth.currentUser
   if (!user) { alert('Debes estar autenticado para hacer una oferta.'); return }
   if (!producto.value) { alert('No se encontró el producto.'); return }
+  if (producto.value.userId === user.uid) {
+    alert('No puedes pujar en tu propio producto.')
+    return
+  }
 
   try {
     await addDoc(collection(db, 'ofertas'), {
@@ -501,6 +561,31 @@ const CrearOferta = async () => {
 .oferta-btn:active { background: #333; }
 .oferta-btn ion-icon { font-size: 1.1rem; pointer-events: none; }
 
+/* ── Vendedor ──────────────────────────────────────── */
+.vendedor-section {
+  background: #fff; margin: 0 16px 10px;
+  border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  cursor: pointer; transition: background 0.15s;
+}
+.vendedor-section:active { background: #fafafa; }
+
+.vendedor-avatar-sm {
+  width: 42px; height: 42px;
+  background: #1A1D2E; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 800; color: #fff;
+  flex-shrink: 0; overflow: hidden;
+}
+.vend-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+
+.vendedor-info-sm { flex: 1; }
+.vendedor-label-sm { font-size: 0.58rem; font-weight: 700; color: #aaa; letter-spacing: 0.08em; margin: 0 0 2px; }
+.vendedor-nombre-sm { font-size: 0.9rem; font-weight: 700; color: #111; margin: 0; }
+
+.vendedor-arrow { color: #ccc; font-size: 1rem; }
+
 /* ── BuyNow ────────────────────────────────────────── */
 .buynow-alert {
   background: #FFF8EE;
@@ -524,6 +609,14 @@ const CrearOferta = async () => {
   font-size: 0.7rem;
   color: #aaa;
   margin-bottom: 10px;
+}
+
+/* ── Bloque vendedor ───────────────────────────────── */
+.vendedor-block {
+  text-align: center;
+  padding: 24px 20px;
+  border: 2px dashed #F5A623;
+  background: #FFFBF0;
 }
 
 /* ── Subasta cerrada ───────────────────────────────── */

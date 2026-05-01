@@ -180,7 +180,9 @@ async function cerrarSubasta(docSnapshot, productoId, motivo) {
 // ─────────────────────────────────────────────────────────────────────────────
 // TRIGGER: oferta creada → actualizar timer + es_mas_alta + notificar
 // ─────────────────────────────────────────────────────────────────────────────
-exports.ofertaCreada = onDocumentCreated("ofertas/{ofertaId}", async (event) => {
+exports.ofertaCreada = onDocumentCreated(
+  { document: "ofertas/{ofertaId}", region: "us-east1" },
+  async (event) => {
   const oferta = event.data?.data();
   logger.info("Oferta creada:", oferta);
 
@@ -190,6 +192,22 @@ exports.ofertaCreada = onDocumentCreated("ofertas/{ofertaId}", async (event) => 
   }
 
   const productoId = oferta.producto_id;
+
+  // 0. Validar que el ofertante NO sea el vendedor
+  try {
+    const prodSnap = await db.collection('products').doc(productoId).get();
+    if (prodSnap.exists()) {
+      const prodData = prodSnap.data();
+      if (prodData.userId === oferta.usuario_id) {
+        logger.warn(`Usuario ${oferta.usuario_id} intentó pujar en su propio producto ${productoId}. Bloqueado.`);
+        // Eliminar la oferta inválida
+        await event.data.ref.delete();
+        return;
+      }
+    }
+  } catch (e) {
+    logger.error('Error validando vendedor vs comprador:', e);
+  }
 
   // 1. Guardar ultimaOfertaAt en el producto (activa el timer de 10 min)
   await db.collection('products').doc(productoId).update({

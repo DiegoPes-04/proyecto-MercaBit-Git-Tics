@@ -1,139 +1,194 @@
 <template>
   <ion-page>
-    <ion-header>
-      <ion-toolbar>
+    <ion-header class="header">
+      <ion-toolbar class="toolbar">
         <ion-buttons slot="start">
-          <ion-menu-button />
+          <ion-back-button text="" default-href="/home" class="back-btn" />
         </ion-buttons>
-        <ion-title>Acerca de MercaBit</ion-title>
+        <ion-title class="toolbar-title">Acerca de</ion-title>
       </ion-toolbar>
     </ion-header>
 
-    <ion-content class="ion-padding">
-      <div class="container">
-        <ion-card class="login-card">
+    <ion-content class="page-content">
 
-          <!-- Ícono de marca consistente con el resto de la app -->
-          <div class="logo">
-            <div class="brand-icon">
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="4" y="4" width="11" height="11" rx="2" fill="white"/>
-                <rect x="21" y="4" width="11" height="11" rx="2" fill="white"/>
-                <rect x="4" y="21" width="11" height="11" rx="2" fill="white"/>
-                <rect x="21" y="21" width="11" height="11" rx="2" fill="white"/>
-              </svg>
+      <!-- Hero -->
+      <div class="hero">
+        <div class="brand-icon">
+          <svg width="40" height="40" viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="4" width="11" height="11" rx="2" fill="white"/>
+            <rect x="21" y="4" width="11" height="11" rx="2" fill="white"/>
+            <rect x="4" y="21" width="11" height="11" rx="2" fill="white"/>
+            <rect x="21" y="21" width="11" height="11" rx="2" fill="white"/>
+          </svg>
+        </div>
+        <h1 class="brand-name">Merca<span class="accent">Bit</span></h1>
+        <p class="brand-tagline">Puja. Gana. Confía.</p>
+        <div class="version-badge">v 1.0.0</div>
+      </div>
+
+      <!-- Descripción -->
+      <div class="section-card">
+        <h3 class="section-title">¿Qué es MercaBit?</h3>
+        <p class="section-text">
+          MercaBit es una plataforma de subastas en línea diseñada para Colombia, donde vendedores y compradores se conectan de forma segura, transparente y en tiempo real.
+        </p>
+      </div>
+
+      <!-- Características -->
+      <div class="section-card">
+        <h3 class="section-title">Características</h3>
+        <div class="features-list">
+          <div class="feature-item" v-for="f in features" :key="f.icon">
+            <div class="feature-icon">{{ f.icon }}</div>
+            <div>
+              <p class="feature-name">{{ f.name }}</p>
+              <p class="feature-desc">{{ f.desc }}</p>
             </div>
           </div>
-
-          <h2 class="textTitulo">Merca<span class="highlight">Bit</span></h2>
-          <ion-text class="version-text">Versión 1.0</ion-text>
-          <ion-text class="footer-text">Copyright ® 2025 MercaBit</ion-text>
-          <ion-text class="footer-text">Cali, Colombia</ion-text>
-          <ion-button class="DesignButton-TermCond" @click="goToTermCond">Términos y Condiciones</ion-button>
-        </ion-card>
+        </div>
       </div>
+
+      <!-- Info -->
+      <div class="section-card">
+        <h3 class="section-title">Información</h3>
+        <div class="info-list">
+          <div class="info-row" v-for="item in info" :key="item.label">
+            <span class="info-label">{{ item.label }}</span>
+            <span class="info-value">{{ item.value }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="actions">
+        <button class="action-btn primary" @click="goToTermCond">
+          📄 Términos y Condiciones
+        </button>
+        <button class="action-btn secondary" @click="goBack">
+          ← Volver
+        </button>
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>Hecho con ❤️ en Cali, Colombia</p>
+        <p>Copyright © 2025 MercaBit. Todos los derechos reservados.</p>
+      </div>
+
+      <div style="height: 40px" />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup>
-import {
-  IonPage,
-  IonHeader,
-  IonToolbar,
-  IonTitle,
-  IonContent,
-  IonButtons,
-  IonMenuButton,
-  IonCard,
-  IonButton,
-  IonText
-} from '@ionic/vue';
-import { useRouter } from 'vue-router';
+import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButtons, IonBackButton } from '@ionic/vue'
+import { useRouter } from 'vue-router'
 
-const router = useRouter();
+const router = useRouter()
+const goToTermCond = () => router.push('/terminos-condiciones')
+const goBack = () => router.back()
 
-const goToTermCond = () => {
-  router.push('/terminos-condiciones');
-};
+const features = [
+  { icon: '⚡', name: 'Subastas en tiempo real', desc: 'Ofertas instantáneas con timer dinámico' },
+  { icon: '🔒', name: 'Seguro y confiable', desc: 'Verificación de compradores y vendedores' },
+  { icon: '🔔', name: 'Notificaciones push', desc: 'Alertas inmediatas de tus subastas' },
+  { icon: '⭐', name: 'Sistema de calificaciones', desc: 'Reputación basada en experiencias reales' },
+  { icon: '💰', name: 'Cierre inmediato (BuyNow)', desc: 'Compra al instante al precio fijo' },
+]
+
+const info = [
+  { label: 'Versión', value: '1.0.0' },
+  { label: 'Plataforma', value: 'iOS & Android' },
+  { label: 'Desarrollado con', value: 'Vue 3 + Ionic' },
+  { label: 'Backend', value: 'Firebase' },
+  { label: 'País', value: '🇨🇴 Colombia' },
+  { label: 'Ciudad', value: 'Cali, Valle del Cauca' },
+]
 </script>
 
 <style scoped>
-.container {
+.header { --background: #fff; border-bottom: 1px solid #eee; }
+.toolbar { --background: #fff; --color: #111; --min-height: 60px; }
+.toolbar-title { font-size: 1rem; font-weight: 800; color: #111; }
+.back-btn { --color: #111; }
+.page-content { --background: #F5F5F5; }
+
+/* Hero */
+.hero {
+  background: #1A1D2E;
+  padding: 40px 20px 36px;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  min-height: 100%;
-  padding: 20px 0;
-}
-
-.login-card {
-  width: 90%;
-  max-width: 400px;
-  padding: 20px;
-  text-align: center;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
-  margin: auto;
-}
-
-/* ── Ícono de marca ─────────────────────────────── */
-.logo {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .brand-icon {
-  width: 72px;
-  height: 72px;
-  background: #1A1D2E;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 80px; height: 80px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 16px;
+  border: 2px solid rgba(255,255,255,0.15);
 }
 
-.version-text {
-  display: block;
-  margin-bottom: 30px;
-  color: #444;
-  font-size: 0.95rem;
+.brand-name {
+  font-size: 2rem; font-weight: 900;
+  color: #fff; margin: 0 0 6px;
+  letter-spacing: 2px;
+}
+.accent { color: #F5A623; }
+
+.brand-tagline {
+  font-size: 0.88rem; color: rgba(255,255,255,0.5);
+  margin: 0 0 16px; letter-spacing: 1px;
 }
 
-.footer-text {
-  display: block;
-  margin-top: 4px;
-  color: #666;
-  font-size: 0.85rem;
-  line-height: 1.2;
+.version-badge {
+  background: rgba(245,166,35,0.2);
+  color: #F5A623;
+  font-size: 0.75rem; font-weight: 800;
+  padding: 5px 16px; border-radius: 20px;
+  border: 1px solid rgba(245,166,35,0.3);
 }
 
-ion-button {
-  --color: white;
-  --border-radius: 20px;
-  height: 50px;
-  font-size: 16px;
-  text-transform: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 40px auto;
+/* Cards */
+.section-card {
+  background: #fff; border-radius: 18px;
+  margin: 0 16px 12px; padding: 18px 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.section-title {
+  font-size: 0.82rem; font-weight: 800;
+  color: #111; margin: 0 0 14px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.section-text {
+  font-size: 0.85rem; color: #555;
+  line-height: 1.6; margin: 0;
 }
 
-.DesignButton-TermCond {
-  --ion-color-primary: #252E8D;
-}
+/* Features */
+.features-list { display: flex; flex-direction: column; gap: 12px; }
+.feature-item { display: flex; align-items: flex-start; gap: 12px; }
+.feature-icon { font-size: 1.3rem; flex-shrink: 0; width: 36px; height: 36px; background: #F9F9F9; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.feature-name { font-size: 0.85rem; font-weight: 700; color: #111; margin: 0 0 2px; }
+.feature-desc { font-size: 0.72rem; color: #aaa; margin: 0; }
 
-.textTitulo {
-  color: black;
-  font-size: 1.5rem;
-  font-weight: bold;
-  white-space: nowrap;
-}
+/* Info */
+.info-list { display: flex; flex-direction: column; gap: 0; }
+.info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F5F5F5; }
+.info-row:last-child { border-bottom: none; }
+.info-label { font-size: 0.82rem; color: #888; }
+.info-value { font-size: 0.82rem; font-weight: 700; color: #111; }
 
-.highlight {
-  color: #a64aff;
-}
+/* Botones */
+.actions { padding: 4px 16px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.action-btn { width: 100%; padding: 15px; border: none; border-radius: 14px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+.action-btn.primary { background: #1A1D2E; color: #fff; }
+.action-btn.secondary { background: #F5F5F5; color: #555; }
+
+/* Footer */
+.footer { text-align: center; padding: 0 20px; }
+.footer p { font-size: 0.72rem; color: #ccc; margin: 4px 0; }
 </style>
