@@ -45,6 +45,9 @@ const routes = [
       { path: 'producto/:id', name: 'DetalleProducto', component: () => import('@/views/DetalleProducto.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/oferta-exitosa', component: () => import('@/views/OfertaExitosa.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/mi-cuenta', component: () => import('@/views/MiCuenta.vue'), meta: { requiresAuth: true, hideLayout: true } },
+      { path: '/mi-cuenta/editar', component: () => import('@/views/EditarPerfil.vue'), meta: { requiresAuth: true, hideLayout: true } },
+      { path: '/mi-cuenta/seguridad', component: () => import('@/views/Seguridad.vue'), meta: { requiresAuth: true, hideLayout: true } },
+      { path: '/mi-cuenta/pagos', component: () => import('@/views/Pagos.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/MisCalificaciones', name: 'MisCalificaciones', component: () => import('@/views/MisCalificaciones.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/Miscompras', name: 'MisCompras', component: () => import('@/views/MisCompras.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/ofertas-realizadas', name: 'MisOfertas', component: () => import('@/views/OfertasRealizadas.vue'), meta: { requiresAuth: true, hideLayout: true } },
@@ -62,7 +65,7 @@ const router = createRouter({
 })
 
 // ── Guard ─────────────────────────────────────────────
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   // Obtener usuario autenticado
   const user = await new Promise<any>((resolve) => {
     const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); })
