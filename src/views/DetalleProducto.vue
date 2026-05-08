@@ -172,6 +172,41 @@
           <p class="desc-text">{{ producto.descripcion || 'Sin descripción.' }}</p>
         </div>
 
+        <!-- Actividad de la subasta -->
+        <div class="section-card actividad-card">
+          <div class="actividad-header">
+            <ion-icon :icon="chatbubblesOutline" class="actividad-icon" />
+            <h3 class="section-title" style="margin:0">Actividad de la subasta</h3>
+            <span class="live-dot" v-if="!subastaFinalizada"></span>
+          </div>
+
+          <div v-if="ofertasFeed.length === 0" class="actividad-empty">
+            <p>Nadie ha subastado aún. ¡Sé el primero!</p>
+          </div>
+
+          <div v-else class="actividad-feed">
+            <div
+              v-for="oferta in ofertasFeed"
+              :key="oferta.id"
+              class="actividad-item"
+              :class="{ 'is-self': oferta.usuario_id === currentUserId }"
+            >
+              <div class="actividad-avatar" :class="{ 'avatar-self': oferta.usuario_id === currentUserId }">
+                {{ oferta.usuario_id === currentUserId ? 'TÚ' : '?' }}
+              </div>
+              <div class="actividad-body">
+                <p class="actividad-name">
+                  {{ oferta.usuario_id === currentUserId ? 'Tú' : `Postor #${getPostorNumero(oferta.usuario_id)}` }}
+                </p>
+                <p class="actividad-msg">
+                  Pujó <strong>${{ Number(oferta.cantidad).toLocaleString('es-CO') }}</strong> COP
+                </p>
+              </div>
+              <span class="actividad-time">{{ formatTiempo(oferta.fecha_hora) }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Bloqueo si es el vendedor -->
         <div class="section-card vendedor-block" v-if="esVendedor && !subastaFinalizada">
           <ion-icon :icon="lockClosedOutline" class="cerrada-icon" />
@@ -239,11 +274,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { doc, getDoc, onSnapshot, collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '@/firebase/FirebaseConfig'
 import { getAuth } from 'firebase/auth'
 import { actualizarProducto, actualizarCamposProducto } from '@/services/productoService'
 import { syncServerTime, serverNow } from '@/composables/useServerTime'
+import { startTick, stopTick, playSend, playJoin } from '@/composables/useSounds'
 import { IonPage, IonContent, IonIcon } from '@ionic/vue'
 import {
   arrowBackOutline, timerOutline, addOutline,
@@ -275,10 +311,53 @@ const tieneOfertas = ref(false)
 const subastaFinalizada = ref(false)
 const esUrgente = ref(false)
 
+// ── Feed de actividad ─────────────────────────────────
+const ofertasFeed = ref([])
+const postorMap = ref(new Map())  // uid → número de postor
+
+const getPostorNumero = (uid) => {
+  if (!postorMap.value.has(uid)) {
+    postorMap.value.set(uid, postorMap.value.size + 1)
+  }
+  return postorMap.value.get(uid)
+}
+
+const formatTiempo = (ts) => {
+  if (!ts) return ''
+  const date = ts?.toDate ? ts.toDate() : new Date(ts)
+  const segs = (Date.now() - date.getTime()) / 1000
+  if (segs < 10) return 'ahora'
+  if (segs < 60) return `hace ${Math.floor(segs)}s`
+  if (segs < 3600) return `hace ${Math.floor(segs / 60)}m`
+  return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+}
+
 // ── Refs para cleanup ─────────────────────────────────
 let timerInterval = null
 let countdownInterval = null
 let unsubscribeProducto = null
+let timerStartedFor = null  // ms de ultimaOfertaAt para el cual arrancó el timer
+let yaNavegoAGanador = false
+let yaCerro = false
+let feedInicializado = false  // primera carga: no suena join
+let ultimaActividadIds = new Set()  // ids vistos para detectar nuevos
+
+const CERRAR_URL = `https://us-central1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/cerrarSubastaInstantanea`
+
+const cerrarSubastaAhora = async () => {
+  if (yaCerro) return
+  yaCerro = true
+  try {
+    const user = getAuth().currentUser
+    if (!user) return
+    const idToken = await user.getIdToken()
+    await fetch(CERRAR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+      body: JSON.stringify({ productoId: route.params.id })
+    })
+  } catch (e) { console.warn('Error cerrando subasta:', e) }
+}
 
 // ── Vendedor ──────────────────────────────────────────
 const vendedor = ref(null)
@@ -373,20 +452,76 @@ onMounted(() => {
     // tieneOfertas si hay ultimaOfertaAt O si hay ofertas registradas
     tieneOfertas.value = !!data.ultimaOfertaAt || (data.numero_ofertas > 0) || data.tieneOfertas
 
+    // Feed de actividad denormalizado en el producto (visible para todos)
+    const actividad = Array.isArray(data.actividad) ? data.actividad : []
+    const lista = actividad
+      .map((a, idx) => ({
+        id: `${a.uid}-${a.fechaMs}-${idx}`,
+        usuario_id: a.uid,
+        cantidad: a.cantidad,
+        fecha_hora: a.fechaMs
+      }))
+      .sort((a, b) => a.fecha_hora - b.fecha_hora)
+
+    const nuevoMap = new Map()
+    lista.forEach(o => {
+      if (o.usuario_id && o.usuario_id !== currentUserId.value && !nuevoMap.has(o.usuario_id)) {
+        nuevoMap.set(o.usuario_id, nuevoMap.size + 1)
+      }
+    })
+    postorMap.value = nuevoMap
+
+    // Detectar pujas NUEVAS de otros usuarios → sonido join
+    if (feedInicializado) {
+      const huboNuevaDeOtro = lista.some(o =>
+        !ultimaActividadIds.has(o.id) && o.usuario_id !== currentUserId.value
+      )
+      if (huboNuevaDeOtro) playJoin()
+    } else {
+      feedInicializado = true
+    }
+    ultimaActividadIds = new Set(lista.map(o => o.id))
+
+    ofertasFeed.value = lista
+
     // Verificar si ya finalizó
     if (data.estado === 'Finalizada') {
       subastaFinalizada.value = true
       timerActivo.value = false
       timerDinamico.value = '—'
+      stopTick()
       limpiarIntervals()
+
+      // Si el usuario actual es el ganador, navegar a /ganador
+      if (!yaNavegoAGanador && currentUserId.value) {
+        try {
+          const ofSnap = await getDocs(query(
+            collection(db, 'ofertas'),
+            where('producto_id', '==', route.params.id),
+            where('es_mas_alta', '==', true)
+          ))
+          const ganador = ofSnap.docs[0]?.data()?.usuario_id
+          if (ganador === currentUserId.value) {
+            yaNavegoAGanador = true
+            router.replace(`/ganador/${route.params.id}`)
+          }
+        } catch (e) { console.warn('Error verificando ganador:', e) }
+      }
       return
     }
 
     subastaFinalizada.value = false
 
-    // Iniciar timer dinámico si hay ultimaOfertaAt
+    // Solo arrancar el timer cuando ultimaOfertaAt cambia realmente
     if (data.ultimaOfertaAt) {
-      iniciarTimerDinamico(data.ultimaOfertaAt)
+      const ultimaMs = data.ultimaOfertaAt?.toMillis
+        ? data.ultimaOfertaAt.toMillis()
+        : new Date(data.ultimaOfertaAt).getTime()
+
+      if (timerStartedFor !== ultimaMs) {
+        timerStartedFor = ultimaMs
+        iniciarTimerDinamico(data.ultimaOfertaAt)
+      }
     }
 
     // Countdown fecha cierre
@@ -398,6 +533,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (unsubscribeProducto) unsubscribeProducto()
+  stopTick()
   limpiarIntervals()
 })
 
@@ -406,11 +542,14 @@ const limpiarIntervals = () => {
   if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null }
 }
 
-// ── Timer dinámico 10 minutos ─────────────────────────
+// ── Timer dinámico 1 minuto ───────────────────────────
 const iniciarTimerDinamico = (ultimaOfertaAt) => {
   if (timerInterval) clearInterval(timerInterval)
 
+  // Solo arrancar tick + activar timer si no estaba ya activo (evitar reinicios)
+  const yaActivo = timerActivo.value
   timerActivo.value = true
+  if (!yaActivo) startTick()
 
   const calcular = () => {
     const ultima = ultimaOfertaAt?.toDate ? ultimaOfertaAt.toDate() : new Date(ultimaOfertaAt)
@@ -421,8 +560,10 @@ const iniciarTimerDinamico = (ultimaOfertaAt) => {
       timerDinamico.value = '00:00'
       timerActivo.value = false
       esUrgente.value = false
+      stopTick()
       clearInterval(timerInterval)
       timerInterval = null
+      cerrarSubastaAhora() // cierre inmediato sin esperar al cron
       return
     }
 
@@ -513,6 +654,7 @@ const CrearOferta = async () => {
   }
 
   try {
+    playSend()
     await addDoc(collection(db, 'ofertas'), {
       producto_id: route.params.id,
       usuario_id: user.uid,
@@ -646,6 +788,83 @@ const CrearOferta = async () => {
 }
 .section-title { font-size: 0.85rem; font-weight: 800; color: #111; margin: 0 0 12px; }
 .desc-text { font-size: 0.85rem; color: #555; line-height: 1.6; margin: 0; }
+
+/* ── Actividad de la subasta ──────────────────────── */
+.actividad-card { padding: 14px 14px 12px; }
+.actividad-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 12px;
+}
+.actividad-icon { font-size: 1.05rem; color: #F5A623; }
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #27AE60; margin-left: auto;
+  animation: liveBlink 1.5s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(39,174,96,0.5); }
+  50%      { opacity: 0.6; box-shadow: 0 0 0 6px rgba(39,174,96,0); }
+}
+
+.actividad-empty {
+  background: #F9F9F9;
+  border-radius: 12px;
+  padding: 18px 12px;
+  text-align: center;
+}
+.actividad-empty p { font-size: 0.78rem; color: #888; margin: 0; }
+
+.actividad-feed {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 4px 0;
+}
+.actividad-feed::-webkit-scrollbar { width: 4px; }
+.actividad-feed::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }
+
+.actividad-item {
+  display: flex; align-items: center; gap: 10px;
+  background: #F9F9F9;
+  border-radius: 12px;
+  padding: 8px 10px;
+  animation: slideIn 0.3s ease-out;
+}
+.actividad-item.is-self {
+  background: #FFF5E1;
+  border: 1px solid #F5A623;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.actividad-avatar {
+  width: 32px; height: 32px;
+  background: #1A1D2E;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 0.7rem; font-weight: 800;
+  flex-shrink: 0;
+}
+.actividad-avatar.avatar-self { background: #F5A623; color: #1A1D2E; }
+
+.actividad-body { flex: 1; min-width: 0; }
+.actividad-name {
+  font-size: 0.75rem; font-weight: 800; color: #111;
+  margin: 0 0 2px;
+}
+.actividad-msg {
+  font-size: 0.72rem; color: #555;
+  margin: 0;
+}
+.actividad-msg strong { color: #1A1D2E; font-weight: 800; }
+
+.actividad-time {
+  font-size: 0.6rem; color: #aaa;
+  font-weight: 600;
+  flex-shrink: 0;
+}
 
 /* ── Oferta ────────────────────────────────────────── */
 .oferta-display {

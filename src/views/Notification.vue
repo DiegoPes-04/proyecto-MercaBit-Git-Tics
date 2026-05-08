@@ -266,7 +266,11 @@ const realizarPago = async (notif) => {
 
 const accionPrincipal = async (notif) => {
   if (esGanador(notif)) {
-    await realizarPago(notif)
+    if (notif.productoId) {
+      router.push(`/ganador/${notif.productoId}`)
+    } else {
+      await realizarPago(notif)
+    }
     return
   }
 

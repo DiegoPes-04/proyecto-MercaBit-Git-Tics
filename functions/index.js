@@ -225,11 +225,36 @@ exports.ofertaCreada = onDocumentCreated(
     logger.error('Error validando vendedor vs comprador:', e);
   }
 
-  // 1. Guardar ultimaOfertaAt en el producto (activa el timer de 10 min)
-  await db.collection('products').doc(productoId).update({
-    ultimaOfertaAt: FieldValue.serverTimestamp(),
-    tieneOfertas: true
-  });
+  // 1. ultimaOfertaAt solo se setea en la PRIMERA oferta (no se reinicia con nuevas pujas)
+  //    Y agregar la oferta al feed de actividad del producto (denormalizado, accesible sin reglas extra)
+  try {
+    const prodRef = db.collection('products').doc(productoId);
+    const prodSnap = await prodRef.get();
+    const prodData = prodSnap.data() || {};
+    logger.info(`Producto ${productoId} - ultimaOfertaAt actual: ${JSON.stringify(prodData.ultimaOfertaAt) || 'null'}`);
+
+    const actividadEntry = {
+      uid: oferta.usuario_id,
+      cantidad: oferta.cantidad,
+      fechaMs: Date.now()
+    };
+
+    if (!prodData.ultimaOfertaAt) {
+      logger.info(`Primera oferta para ${productoId}. Activando timer.`);
+      await prodRef.update({
+        ultimaOfertaAt: FieldValue.serverTimestamp(),
+        tieneOfertas: true,
+        actividad: FieldValue.arrayUnion(actividadEntry)
+      });
+    } else {
+      logger.info(`Oferta adicional para ${productoId}. NO se reinicia timer.`);
+      const updates = { actividad: FieldValue.arrayUnion(actividadEntry) };
+      if (!prodData.tieneOfertas) updates.tieneOfertas = true;
+      await prodRef.update(updates);
+    }
+  } catch (e) {
+    logger.error('Error actualizando producto / actividad:', e);
+  }
 
   // 2. Recalcular oferta más alta
   await actualizarEsMasAlta(productoId);
@@ -535,6 +560,54 @@ exports.actualizacionSubastaV2 = onDocumentUpdated("subastas/{subastaId}", async
   } catch (error) {
     logger.error('Error actualizacionSubastaV2:', error);
     return { error: error.message };
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTTP: cerrar subasta inmediatamente cuando timer expiró (llamado por cliente)
+// La transacción atómica en cerrarSubasta garantiza idempotencia
+// ─────────────────────────────────────────────────────────────────────────────
+exports.cerrarSubastaInstantanea = onRequest({ cors: true }, async (req, res) => {
+  const idToken = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!idToken) { res.status(401).json({ success: false, error: 'No autenticado' }); return; }
+  try { await adminAuth().verifyIdToken(idToken); }
+  catch { res.status(401).json({ success: false, error: 'Token inválido' }); return; }
+
+  const { productoId } = req.body;
+  if (!productoId) { res.status(400).json({ success: false, error: 'Falta productoId' }); return; }
+
+  try {
+    const prodRef = db.collection('products').doc(productoId);
+    const prodSnap = await prodRef.get();
+    const data = prodSnap.data();
+    if (!data) { res.status(404).json({ success: false }); return; }
+
+    if (data.estado !== 'Disponible') {
+      res.json({ success: true, alreadyClosed: true });
+      return;
+    }
+
+    const ahora = new Date();
+    if (data.ultimaOfertaAt) {
+      const ultima = data.ultimaOfertaAt.toDate ? data.ultimaOfertaAt.toDate() : new Date(data.ultimaOfertaAt);
+      const segs = (ahora - ultima) / 1000;
+      if (segs >= 60) {
+        await cerrarSubasta(prodSnap, productoId, 'timer_dinamico');
+        res.json({ success: true, closed: true });
+        return;
+      }
+    } else {
+      const fechaCierre = new Date(data.fechaCierre);
+      if (fechaCierre <= ahora) {
+        await cerrarSubasta(prodSnap, productoId, 'fecha_cierre');
+        res.json({ success: true, closed: true });
+        return;
+      }
+    }
+    res.json({ success: true, notExpired: true });
+  } catch (e) {
+    logger.error('Error en cerrarSubastaInstantanea:', e);
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 

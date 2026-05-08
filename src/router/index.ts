@@ -14,6 +14,13 @@ const routes = [
     props: true,
     meta: { requiresAuth: true, hideLayout: true }
   },
+  {
+    path: '/ganador/:productoId',
+    name: 'Ganador',
+    component: () => import('@/views/Ganador.vue'),
+    props: true,
+    meta: { requiresAuth: true, hideLayout: true }
+  },
 
   // ── App ───────────────────────────────────────────────
   {
