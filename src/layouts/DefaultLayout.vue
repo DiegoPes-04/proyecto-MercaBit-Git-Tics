@@ -1,6 +1,9 @@
 <template>
-  <ion-app>
+  <ion-page>
     <MenuDiagonal />
+
+    <!-- Notificación flotante en primer plano -->
+    <InAppNotification />
 
     <!-- Header del layout solo para vistas que NO tienen su propio header -->
     <ion-header v-if="!route.meta.hideLayout">
@@ -12,29 +15,41 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-router-outlet id="main-content" />
+    <router-view id="main-content" />
 
     <!-- Footer del layout solo para vistas que NO tienen su propio footer -->
     <Footer v-if="!route.meta.hideLayout" />
-  </ion-app>
+  </ion-page>
 </template>
 
 <script setup>
 import {
-  IonApp,
+  IonPage,
   IonHeader,
   IonToolbar,
   IonButtons,
   IonMenuButton,
-  IonTitle,
-  IonRouterOutlet
+  IonTitle
 } from '@ionic/vue'
 import MenuDiagonal from '@/components/MenuDiagonal.vue'
 import Footer from '@/components/Footer.vue'
+import InAppNotification from '@/components/InAppNotification.vue'
 import { useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { notificationService } from '@/services/notification.service'
+import { getAuth, onAuthStateChanged } from 'firebase/auth'
 
 const route = useRoute()
+
+onMounted(() => {
+  // Inicializar push notifications cuando el usuario ya esté autenticado
+  const auth = getAuth()
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      notificationService.initialize()
+    }
+  })
+})
 
 const pageTitle = computed(() => {
   const titles = {

@@ -106,6 +106,13 @@
             <ion-label>Mi Cuenta</ion-label>
           </ion-item>
 
+          <ion-item button class="nav-item" @click="navegar('/soporte')">
+            <div class="nav-icon-wrap red" slot="start">
+              <ion-icon :icon="chatbubblesOutline" />
+            </div>
+            <ion-label>Soporte</ion-label>
+          </ion-item>
+
           <ion-item button class="nav-item" @click="navegar('/accerca-de-la-app')">
             <div class="nav-icon-wrap teal" slot="start">
               <ion-icon :icon="informationCircleOutline" />
@@ -153,7 +160,8 @@ import {
   logOutOutline,
   addOutline,
   bagCheckOutline,
-  searchOutline
+  searchOutline,
+  chatbubblesOutline
 } from 'ionicons/icons';
 import { logoutUser } from '@/services/authService';
 import { useRouter } from 'vue-router';
@@ -364,6 +372,7 @@ const logout = async () => {
 .nav-icon-wrap.green  { background: #27AE60; }
 .nav-icon-wrap.purple { background: #8E44AD; }
 .nav-icon-wrap.teal   { background: #16A085; }
+.nav-icon-wrap.red    { background: #E53935; }
 
 /* ── Logout ────────────────────────────────────────── */
 .logout-wrap {

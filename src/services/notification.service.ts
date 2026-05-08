@@ -1,4 +1,4 @@
-import { Capacitor } from '@capacitor/core'; 
+import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
@@ -8,6 +8,7 @@ import { getToken, onMessage } from 'firebase/messaging';
 import { messaging } from '../firebase/FirebaseConfig';
 // @ts-ignore
 import { db } from '../firebase/FirebaseConfig';
+import { triggerNotification } from '../composables/useInAppNotification';
 
 class NotificationService {
   private vapidKey = 'BHYPMBeNadDFf05IRAfcdIASTjjgtHFpU3EzW8OI6A1r23m4OCUpst64QdNsZYOZK-MGY5LLk6pF5wOoZejsD64';
@@ -39,12 +40,17 @@ class NotificationService {
         this.saveTokenToDatabase(token.value);
       });
 
+      // Foreground: mostrar notificación flotante dentro de la app
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        console.log('Notificación nativa recibida:', notification);
+        triggerNotification(
+          notification.title || 'MercaBit',
+          notification.body || ''
+        );
       });
 
-      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('Acción de notificación:', notification.actionId, notification.inputValue);
+      // Background/killed: usuario toca la notificación → abrir app y navegar
+      PushNotifications.addListener('pushNotificationActionPerformed', () => {
+        window.location.href = '/Notification';
       });
 
     } catch (error) {
@@ -96,9 +102,12 @@ class NotificationService {
         console.log('Token web:', token);
         this.saveTokenToDatabase(token);
 
+        // Foreground web: mostrar notificación flotante en vez de notificación del navegador
         onMessage(messaging, (payload) => {
-          console.log('Mensaje recibido en primer plano:', payload);
-          this.showNotification(payload);
+          triggerNotification(
+            payload.notification?.title || 'MercaBit',
+            payload.notification?.body || ''
+          );
         });
       }
 
@@ -123,21 +132,6 @@ class NotificationService {
       console.log("Token guardado para el usuario:", user.uid);
     } catch (error) {
       console.warn('Error guardando token:', error);
-    }
-  }
-
-  private showNotification(payload: any) {
-    const title = payload.notification?.title || 'Notificación';
-    const options = {
-      body: payload.notification?.body || '',
-      icon: '/favicon.ico',
-      data: payload.data,
-    };
-
-    if (Notification.permission === 'granted') {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification(title, options);
-      });
     }
   }
 

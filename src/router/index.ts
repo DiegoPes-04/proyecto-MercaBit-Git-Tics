@@ -15,22 +15,6 @@ const routes = [
     meta: { requiresAuth: true, hideLayout: true }
   },
 
-  // ── Admin ─────────────────────────────────────────────
-  {
-    path: '/admin',
-    component: () => import('@/layouts/AdminLayout.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true },
-    children: [
-      { path: '', redirect: '/admin/dashboard' },
-      { path: 'dashboard', name: 'AdminDashboard', component: () => import('@/views/admin/AdminDashboard.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-      { path: 'usuarios', name: 'AdminUsuarios', component: () => import('@/views/admin/AdminUsuarios.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-      { path: 'subastas', name: 'AdminSubastas', component: () => import('@/views/admin/AdminSubastas.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-      { path: 'transacciones', name: 'AdminTransacciones', component: () => import('@/views/admin/AdminTransacciones.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-      { path: 'reportes', name: 'AdminReportes', component: () => import('@/views/admin/AdminReportes.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-      { path: 'categorias', name: 'AdminCategorias', component: () => import('@/views/admin/AdminCategorias.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
-    ]
-  },
-
   // ── App ───────────────────────────────────────────────
   {
     path: '',
@@ -55,6 +39,7 @@ const routes = [
       { path: '/categoria/:categoriaId', name: 'ProductosPorCategoria', component: () => import('@/views/ProductosPorCategoria.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/explorar', component: () => import('@/views/ExplorarPage.vue'), meta: { requiresAuth: true, hideLayout: true } },
       { path: '/perfil/:userId', name: 'PerfilVendedor', component: () => import('@/views/PerfilVendedor.vue'), meta: { requiresAuth: true, hideLayout: true } },
+      { path: '/soporte', name: 'Soporte', component: () => import('@/views/Soporte.vue'), meta: { requiresAuth: true, hideLayout: true } },
     ]
   }
 ];
@@ -66,22 +51,18 @@ const router = createRouter({
 
 // ── Guard ─────────────────────────────────────────────
 router.beforeEach(async (to, _from, next) => {
-  // Obtener usuario autenticado
   const user = await new Promise<any>((resolve) => {
     const unsub = onAuthStateChanged(auth, (u) => { unsub(); resolve(u); })
   })
+
+  // Sesión activa intentando ir al login → home
+  if (user && to.path === '/login') return next('/home')
 
   // Ruta pública
   if (!to.meta.requiresAuth) return next()
 
   // No autenticado → login
   if (!user) return next('/login')
-
-  // Leer rol del localStorage (guardado al hacer login)
-  const rol = localStorage.getItem('userRol') || 'usuario'
-
-  // Ruta de admin → verificar rol
-  if (to.meta.requiresAdmin && rol !== 'admin') return next('/home')
 
   next()
 })

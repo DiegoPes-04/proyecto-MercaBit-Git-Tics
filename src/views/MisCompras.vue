@@ -51,7 +51,7 @@
           </div>
 
           <!-- Botón calificar si ya fue entregado -->
-          <div class="calificar-wrap" v-if="compraActiva.estado?.toLowerCase().includes('entreg')">
+          <div class="calificar-wrap" v-if="esEntregado(compraActiva.estado)">
             <button class="calificar-btn-full" @click="navigate(`/add-calification/${compraActiva.id}`)">
               ⭐ Calificar al vendedor
             </button>
@@ -113,7 +113,7 @@
         <div class="soporte-left">
           <h3 class="soporte-title">¿Problemas con tu pedido?</h3>
           <p class="soporte-sub">Nuestro equipo de soporte está disponible 24/7 para ayudarte con garantías y devoluciones.</p>
-          <button class="soporte-btn">CONTACTAR SOPORTE</button>
+          <button class="soporte-btn" @click="navigate('/soporte')">CONTACTAR SOPORTE</button>
         </div>
         <div class="soporte-circle" />
       </div>
@@ -154,7 +154,7 @@ import {
   bagOutline, checkmarkOutline, optionsOutline,
   cubeOutline, bicycleOutline, homeOutline,
   gridOutline, layersSharp, searchOutline,
-  notificationsOutline, personOutline, carOutline
+  notificationsOutline, personOutline
 } from 'ionicons/icons'
 import { ref, computed, onMounted } from 'vue'
 import { db } from '../firebase/FirebaseConfig'
@@ -169,34 +169,40 @@ const loading = ref(true)
 
 const trackingSteps = [
   { label: 'PREPARANDO', icon: cubeOutline },
-  { label: 'DESPACHADO', icon: carOutline },
   { label: 'EN CAMINO',  icon: bicycleOutline },
   { label: 'ENTREGADO',  icon: checkmarkOutline }
 ]
 
+// PREPARANDO  = ganaste la subasta        (estado: 'En proceso')
+// EN CAMINO   = pago procesado            (estado: 'pagado')
+// ENTREGADO   = vendedor marcó vendido    (estado: 'Vendido')
 const getStepIndex = (estado) => {
   if (!estado) return 0
   const e = estado.toLowerCase()
-  if (e.includes('entreg')) return 3
-  if (e.includes('camino')) return 2
-  if (e.includes('despach')) return 1
+  if (e.includes('vendido') || e.includes('entreg')) return 2
+  if (e.includes('pagado') || e.includes('camino')) return 1
   return 0
 }
 
 const getEstadoClass = (estado) => {
   if (!estado) return 'estado-proceso'
   const e = estado.toLowerCase()
-  if (e.includes('entreg')) return 'estado-entregado'
-  if (e.includes('camino')) return 'estado-camino'
+  if (e.includes('vendido') || e.includes('entreg')) return 'estado-entregado'
+  if (e.includes('pagado') || e.includes('camino')) return 'estado-camino'
   return 'estado-proceso'
 }
 
 // La compra más reciente va arriba como "activa"
+const esEntregado = (estado) => {
+  const e = (estado || '').toLowerCase()
+  return e.includes('vendido') || e.includes('entreg')
+}
+
 const compraActiva = computed(() =>
-  compras.value.find(c => !c.estado?.toLowerCase().includes('entreg')) || compras.value[0] || null
+  compras.value.find(c => !esEntregado(c.estado)) || compras.value[0] || null
 )
 const historial = computed(() =>
-  compras.value.filter(c => c.estado?.toLowerCase().includes('entreg'))
+  compras.value.filter(c => esEntregado(c.estado))
 )
 
 const formatPrice = (val) => {

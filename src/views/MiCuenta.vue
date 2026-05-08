@@ -135,7 +135,7 @@ import {
 } from 'ionicons/icons'
 import { ref, computed, onMounted } from 'vue'
 import { auth, db } from '@/firebase/FirebaseConfig'
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { logoutUser } from '@/services/authService'
 import { useRouter } from 'vue-router'
@@ -186,10 +186,33 @@ onMounted(async () => {
     saldo.value = d.saldo || 0
   }
 
-  const calSnap = await getDocs(collection(db, 'usuarios', user.uid, 'calificaciones'))
-  calificaciones.value = calSnap.docs.map(d => d.data())
-  const total = calificaciones.value.reduce((s, c) => s + c.puntaje, 0)
-  promedio.value = calificaciones.value.length ? total / calificaciones.value.length : 0
+  // ── Calificaciones (valoración) ─────────────────────
+  try {
+    const calSnap = await getDocs(collection(db, 'users', user.uid, 'calificaciones'))
+    calificaciones.value = calSnap.docs.map(d => d.data())
+    const total = calificaciones.value.reduce((s, c) => s + (c.puntaje || 0), 0)
+    promedio.value = calificaciones.value.length ? total / calificaciones.value.length : 0
+  } catch (e) { console.warn('Error calificaciones:', e) }
+
+  // ── Pujas (ofertas hechas por el usuario) ───────────
+  try {
+    const pujasSnap = await getDocs(
+      query(collection(db, 'ofertas'), where('usuario_id', '==', user.uid))
+    )
+    stats.value.pujas = pujasSnap.size
+  } catch (e) { console.warn('Error pujas:', e) }
+
+  // ── Ventas (productos del usuario marcados como Vendido) ───
+  try {
+    const ventasSnap = await getDocs(
+      query(
+        collection(db, 'products'),
+        where('userId', '==', user.uid),
+        where('estado', '==', 'Vendido')
+      )
+    )
+    stats.value.ventas = ventasSnap.size
+  } catch (e) { console.warn('Error ventas:', e) }
 })
 
 const seleccionarImagen = () => fileInput.value?.click()

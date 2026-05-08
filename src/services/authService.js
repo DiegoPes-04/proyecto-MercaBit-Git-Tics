@@ -5,7 +5,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendEmailVerification,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
+  inMemoryPersistence
 } from "firebase/auth";
 import {
   getFirestore,
@@ -44,6 +47,7 @@ export const registerUser = async (name, telefono, email, password) => {
     });
 
     await sendEmailVerification(user);
+    await signOut(auth);
 
     return {
       success: true,
@@ -56,21 +60,32 @@ export const registerUser = async (name, telefono, email, password) => {
 };
 
 // ── Login ─────────────────────────────────────────
-export const loginUser = async (email, password) => {
+export const loginUser = async (email, password, rememberMe = false) => {
   try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : inMemoryPersistence);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Verificar rol en Firestore para saber si es admin
-    const userSnap = await getDoc(doc(db, "users", user.uid));
-    console.log("🔍 UID:", user.uid);
-    console.log("🔍 Firestore data:", userSnap.data());
-    const rol = userSnap.data()?.rol || "usuario";
-    console.log("🔍 Rol detectado:", rol);
-    const isAdmin = rol === "admin";
+    // Forzar refresco del estado del usuario desde el servidor
+    await user.reload();
+    const freshUser = auth.currentUser;
 
-    // Admins no necesitan verificar email
-    if (!user.emailVerified && !isAdmin) {
+    // Verificar rol en Firestore
+    const userSnap = await getDoc(doc(db, "users", user.uid));
+    const rol = userSnap.data()?.rol || "usuario";
+
+    // Bloquear acceso a administradores — deben usar el panel web
+    if (rol === "admin" || rol === "superadmin") {
+      await signOut(auth);
+      return {
+        success: false,
+        message: "Los administradores no pueden acceder desde la app móvil. Usa el panel web de MercaBit.",
+      };
+    }
+
+    // Verificar correo para usuarios normales
+    if (!freshUser?.emailVerified) {
+      await signOut(auth);
       return {
         success: false,
         resend: true,
@@ -78,10 +93,8 @@ export const loginUser = async (email, password) => {
       };
     }
 
-    // Guardar rol en localStorage para acceso rápido
-    localStorage.setItem('userRol', rol);
     localStorage.setItem('userUid', user.uid);
-    return { success: true, user, rol };
+    return { success: true, uid: user.uid, rol };
   } catch (error) {
     console.error("Error al iniciar sesión:", error);
     return { success: false, message: error.message };

@@ -3,14 +3,6 @@
     <ion-content :scroll-y="true" class="register-content">
       <div class="register-wrapper">
 
-        <!-- Indicador de paso -->
-        <div class="step-header">
-          <span class="step-label">PASO 1 DE 2</span>
-          <div class="step-bar">
-            <div class="step-bar__fill"></div>
-          </div>
-        </div>
-
         <!-- Título -->
         <div class="title-section">
           <h1 class="page-title">Crea tu cuenta</h1>
@@ -245,8 +237,7 @@ export default {
         );
 
         if (result.success) {
-          alert(result.message);
-          router.push('/login');
+          router.push({ path: '/login', query: { registered: '1' } });
         } else {
           errorMessage.value = result.message;
         }

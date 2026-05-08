@@ -39,6 +39,24 @@
           <span class="precio-label">Inmediato</span>
           <span class="precio-val">${{ formatPrecio(producto.precioVentaInmediata) }}</span>
         </div>
+        <div class="comision-row">
+          <span class="comision-tag">+{{ comisionPorcentaje }}% comisión MercaBit</span>
+        </div>
+      </div>
+
+      <!-- Vendedor y calificación -->
+      <div class="tarjeta-vendedor" @click="irAlPerfil">
+        <div class="v-stars">
+          <ion-icon
+            v-for="s in 5"
+            :key="s"
+            :icon="s <= Math.round(vendedorPromedio) ? star : starOutline"
+            class="v-star"
+            :class="{ filled: s <= Math.round(vendedorPromedio) }"
+          />
+        </div>
+        <span class="v-score">{{ vendedorPromedio > 0 ? vendedorPromedio.toFixed(1) : 'Nuevo' }}</span>
+        <span class="v-name">{{ vendedorNombre }}</span>
       </div>
 
       <div class="tarjeta-footer">
@@ -51,20 +69,55 @@
 
 <script setup>
 import { IonIcon } from '@ionic/vue'
-import { checkmarkCircle, timeOutline, personOutline } from 'ionicons/icons'
-import { computed } from 'vue'
+import { checkmarkCircle, timeOutline, personOutline, star, starOutline } from 'ionicons/icons'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '@/firebase/FirebaseConfig'
 
 const props = defineProps({
   producto: { type: Object, required: true },
   currentUserId: { type: String, default: null }
 })
 
+const COMISIONES = {
+  'Inmuebles': 3,
+  'Autos y Motos': 2.5,
+  'Industrial y Maquinaria': 2,
+  'Tecnología': 1.5,
+  'Ropa': 1,
+  'Hogar y Decoracion': 0.5,
+}
+
+const comisionPorcentaje = computed(() => COMISIONES[props.producto?.categoria] ?? 1)
+
 const esMiProducto = computed(() =>
   props.currentUserId && props.producto?.userId === props.currentUserId
 )
 
 const router = useRouter()
+
+const vendedorNombre = ref('')
+const vendedorPromedio = ref(0)
+
+onMounted(async () => {
+  const uid = props.producto?.userId || props.producto?.vendedorId
+  if (!uid) return
+  try {
+    const snap = await getDoc(doc(db, 'users', uid))
+    if (snap.exists()) {
+      const d = snap.data()
+      vendedorNombre.value = d.name ? d.name.split(' ')[0] : 'Vendedor'
+      vendedorPromedio.value = d.promedio || 0
+    }
+  } catch (_) {}
+})
+
+function irAlPerfil(e) {
+  e.stopPropagation()
+  const uid = props.producto?.userId || props.producto?.vendedorId
+  if (uid) router.push(`/perfil/${uid}`)
+}
 
 function verProducto() {
   if (props.producto?.id) {
@@ -185,6 +238,26 @@ function formatoFecha(fecha) {
 .precio-label { font-size: 0.6rem; color: #aaa; font-weight: 600; }
 .precio-val { font-size: 0.78rem; font-weight: 800; color: #111; }
 .precio-row.naranja .precio-val { color: #F5A623; }
+
+.comision-row { margin-top: 4px; }
+.comision-tag {
+  font-size: 0.58rem; font-weight: 700;
+  color: #fff; background: #1A1D2E;
+  padding: 2px 7px; border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+/* Vendedor */
+.tarjeta-vendedor {
+  display: flex; align-items: center; gap: 3px;
+  padding: 6px 0; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.v-stars { display: flex; gap: 1px; }
+.v-star { font-size: 0.58rem; color: #ddd; }
+.v-star.filled { color: #F5A623; }
+.v-score { font-size: 0.6rem; font-weight: 800; color: #F5A623; margin: 0 1px; }
+.v-name { font-size: 0.6rem; color: #aaa; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
 /* Footer fecha */
 .tarjeta-footer {

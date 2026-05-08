@@ -17,8 +17,8 @@
         <p>Cargando...</p>
       </div>
 
-      <!-- No disponible -->
-      <div class="no-disponible" v-else-if="estadoCompra !== 'completado' && estadoCompra !== 'En proceso'">
+      <!-- No disponible (no es el comprador de esta compra) -->
+      <div class="no-disponible" v-else-if="!esComprador">
         <div class="empty-icon-wrap">
           <ion-icon :icon="lockClosedOutline" class="empty-icon" />
         </div>
@@ -149,12 +149,12 @@ import { agregarCalificacion } from '../services/CalificationService'
 
 const route = useRoute()
 const router = useRouter()
-const navigate = (path) => router.push(path)
+const navigate = (path) => router.replace(path)
 
 const compraId = route.params.compraId
 const puntaje = ref(5)
 const comentario = ref('')
-const estadoCompra = ref('')
+const esComprador = ref(false)
 const vendedorId = ref(null)
 const vendedorNombre = ref('')
 const nombreProducto = ref('')
@@ -202,7 +202,9 @@ onMounted(async () => {
     const compraSnap = await getDoc(doc(db, 'compras', compraId))
     if (compraSnap.exists()) {
       const data = compraSnap.data()
-      estadoCompra.value = data.estado || 'En proceso'
+      // Verificar que el usuario actual es el comprador
+      // El CF guarda el comprador como 'userId'; el servicio local como 'compradorId'
+      esComprador.value = data.userId === user.uid || data.compradorId === user.uid
       vendedorId.value = data.vendedorId
 
       // Nombre del producto
@@ -220,9 +222,8 @@ onMounted(async () => {
       // Verificar si ya calificó
       const calSnap = await getDocs(
         query(
-          collection(db, 'usuarios', data.vendedorId, 'calificaciones'),
-          where('compraId', '==', compraId),
-          where('compradorId', '==', user.uid)
+          collection(db, 'users', data.vendedorId, 'calificaciones'),
+          where('compraId', '==', compraId)
         )
       )
       yaCalifico.value = !calSnap.empty
@@ -262,6 +263,7 @@ const enviarCalificacion = async () => {
     )
 
     yaCalifico.value = true
+    setTimeout(() => router.replace('/Miscompras'), 1800)
   } catch (e) {
     console.error('Error al enviar calificación:', e)
     alert('Hubo un problema al enviar la calificación.')

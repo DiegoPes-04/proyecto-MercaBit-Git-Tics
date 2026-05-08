@@ -46,8 +46,8 @@
               @error="onImgError"
             />
             <!-- Badge estado -->
-            <span class="estado-badge" :class="producto.estado === 'Vendido' ? 'vendido' : 'disponible'">
-              {{ producto.estado === 'Vendido' ? 'VENDIDO' : 'DISPONIBLE' }}
+            <span class="estado-badge" :class="badgeClass(producto.estado)">
+              {{ badgeTexto(producto.estado) }}
             </span>
           </div>
 
@@ -90,15 +90,35 @@
               </div>
             </div>
 
+            <!-- Motivo de rechazo -->
+            <div v-if="producto.estado === 'Rechazado'" class="rechazo-notice">
+              <div class="rechazo-header">
+                <ion-icon :icon="closeCircleOutline" />
+                <span>Publicación rechazada</span>
+              </div>
+              <p class="rechazo-motivo">{{ producto.motivoRechazo || 'El administrador no especificó un motivo.' }}</p>
+            </div>
+
             <!-- Acciones -->
             <div class="acciones-row">
               <button
-                v-if="producto.estado !== 'Vendido'"
+                v-if="producto.estado !== 'Vendido' && producto.estado !== 'PendienteAprobacion' && producto.estado !== 'Rechazado'"
                 class="btn-vendido"
                 @click="marcarComoVendido(producto.id)"
               >
                 <ion-icon :icon="checkmarkCircleOutline" />
                 Marcar Vendido
+              </button>
+              <div v-if="producto.estado === 'PendienteAprobacion'" class="pending-notice">
+                <ion-icon :icon="timeOutline" /> En revisión por el administrador
+              </div>
+              <button
+                v-if="producto.estado === 'Rechazado'"
+                class="btn-reenviar"
+                @click="reenviarProducto(producto.id)"
+              >
+                <ion-icon :icon="refreshOutline" />
+                Corregir y reenviar
               </button>
               <button class="btn-borrar" @click="eliminarProducto(producto.id)">
                 <ion-icon :icon="trashOutline" />
@@ -143,13 +163,13 @@ import {
 } from '@ionic/vue'
 import {
   addOutline, bagAddOutline, calendarOutline, timeOutline,
-  checkmarkCircleOutline, trashOutline,
+  checkmarkCircleOutline, trashOutline, closeCircleOutline, refreshOutline,
   homeOutline, gridOutline, layersOutline,
   searchOutline, notificationsOutline, personOutline
 } from 'ionicons/icons'
 import { ref, onMounted } from 'vue'
 import { db, auth, storage } from '../firebase/FirebaseConfig'
-import { collection, query, where, getDocs, getDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, updateDoc, doc, deleteDoc, deleteField } from 'firebase/firestore'
 import { ref as storageRef, deleteObject } from 'firebase/storage'
 import { useRouter } from 'vue-router'
 
@@ -158,6 +178,25 @@ const navigate = (path) => router.push(path)
 const productos = ref([])
 
 const onImgError = (e) => { e.target.src = '/img/imagen-prueba.jpg' }
+
+const badgeClass = (estado) => ({
+  'vendido':    estado === 'Vendido',
+  'disponible': estado === 'Disponible',
+  'pendiente':  estado === 'PendienteAprobacion',
+  'finalizada': estado === 'Finalizada',
+  'rechazado':  estado === 'Rechazado',
+})
+
+const badgeTexto = (estado) => {
+  const map = {
+    Vendido:             'VENDIDO',
+    Disponible:          'DISPONIBLE',
+    PendienteAprobacion: 'EN REVISIÓN',
+    Finalizada:          'FINALIZADA',
+    Rechazado:           'RECHAZADO',
+  }
+  return map[estado] || estado.toUpperCase()
+}
 
 const formatearPrecio = (precio) => {
   if (!precio && precio !== 0) return 'N/A'
@@ -223,9 +262,32 @@ const eliminarProducto = async (id) => {
   }
 }
 
+const reenviarProducto = async (id) => {
+  try {
+    await updateDoc(doc(db, 'products', id), {
+      estado: 'PendienteAprobacion',
+      motivoRechazo: deleteField()
+    })
+    productos.value = productos.value.map(p =>
+      p.id === id ? { ...p, estado: 'PendienteAprobacion', motivoRechazo: undefined } : p
+    )
+  } catch (e) {
+    console.error('Error al reenviar:', e)
+  }
+}
+
 const marcarComoVendido = async (id) => {
   try {
     await updateDoc(doc(db, 'products', id), { estado: 'Vendido' })
+
+    // Actualizar la compra relacionada → mueve el tracker a ENTREGADO
+    const comprasSnap = await getDocs(
+      query(collection(db, 'compras'), where('productoId', '==', id))
+    )
+    for (const compraDoc of comprasSnap.docs) {
+      await updateDoc(compraDoc.ref, { estado: 'Vendido' })
+    }
+
     productos.value = productos.value.map(p =>
       p.id === id ? { ...p, estado: 'Vendido' } : p
     )
@@ -268,8 +330,39 @@ onMounted(cargarMisProductos)
 .card-img-wrap { position: relative; width: 100%; height: 200px; background: #f0f0f0; }
 .card-img { width: 100%; height: 100%; object-fit: cover; }
 .estado-badge { position: absolute; top: 12px; right: 12px; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.08em; padding: 4px 10px; border-radius: 20px; }
-.estado-badge.vendido { background: #27AE60; color: #fff; }
+.estado-badge.vendido    { background: #27AE60; color: #fff; }
 .estado-badge.disponible { background: #F5A623; color: #000; }
+.estado-badge.pendiente  { background: #E3F2FD; color: #1565C0; }
+.estado-badge.finalizada { background: #EEEEEE; color: #555; }
+.estado-badge.rechazado  { background: #FFEBEE; color: #E53935; }
+
+.pending-notice {
+  flex: 1; background: #E3F2FD;
+  border-radius: 12px; padding: 12px;
+  font-size: 0.78rem; font-weight: 700; color: #1565C0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.pending-notice ion-icon { font-size: 1rem; pointer-events: none; }
+
+.rechazo-notice {
+  background: #FFEBEE; border-left: 3px solid #E53935;
+  border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+}
+.rechazo-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; font-weight: 800; color: #E53935; margin-bottom: 6px;
+}
+.rechazo-header ion-icon { font-size: 1rem; pointer-events: none; }
+.rechazo-motivo {
+  font-size: 0.78rem; color: #555; line-height: 1.5; margin: 0;
+}
+
+.btn-reenviar {
+  flex: 1; background: #FFF8EE; border: none; border-radius: 12px;
+  padding: 12px; font-size: 0.8rem; font-weight: 700; color: #E07010;
+  display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+}
+.btn-reenviar ion-icon { font-size: 1rem; pointer-events: none; }
 
 /* Body */
 .card-body { padding: 16px; }

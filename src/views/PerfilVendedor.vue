@@ -272,7 +272,7 @@ onMounted(async () => {
 
     // Calificaciones con nombre del comprador
     const calSnap = await getDocs(
-      collection(db, 'usuarios', vendedorId, 'calificaciones')
+      collection(db, 'users', vendedorId, 'calificaciones')
     )
     const cals = await Promise.all(calSnap.docs.map(async (d) => {
       const data = { ...d.data(), id: d.id }

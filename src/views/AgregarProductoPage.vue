@@ -17,7 +17,7 @@
       <!-- Hero -->
       <div class="hero-section">
         <h1 class="hero-title">Crear<br /><span class="hero-accent">Subasta</span></h1>
-        <p class="hero-sub">Completa los datos para publicar tu producto</p>
+        <p class="hero-sub">Tu producto quedará en revisión antes de publicarse</p>
       </div>
 
       <form @submit.prevent="crearProducto" class="form-wrap">
@@ -223,6 +223,35 @@
           </div>
         </div>
 
+        <!-- ── Documentos de respaldo ── -->
+        <div class="form-section">
+          <h3 class="form-section-title">Documentos de respaldo</h3>
+          <p class="docs-desc">Sube facturas, escrituras, certificados u otros documentos que validen tu producto. Solo el administrador los verá para verificar la subasta.</p>
+
+          <div class="docs-list" v-if="documentosNombres.length">
+            <div class="doc-item" v-for="(nombre, i) in documentosNombres" :key="i">
+              <ion-icon :icon="documentOutline" class="doc-icon" />
+              <span class="doc-nombre">{{ nombre }}</span>
+              <button type="button" class="doc-remove" @click="eliminarDocumento(i)">
+                <ion-icon :icon="closeCircle" />
+              </button>
+            </div>
+          </div>
+
+          <label class="doc-upload-btn" v-if="documentosNombres.length < 5">
+            <ion-icon :icon="cloudUploadOutline" />
+            <span>Agregar documento</span>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              multiple
+              style="display:none"
+              @change="cargarDocumentos"
+            />
+          </label>
+          <p class="docs-hint">PDF, imagen o Word · Máx. 5 archivos · No visibles al público</p>
+        </div>
+
         <!-- ── Botón submit ── -->
         <div class="submit-wrap">
           <button
@@ -232,13 +261,22 @@
             :class="{ disabled: cargandoImagenes || !formularioValido }"
           >
             <ion-icon :icon="addCircleOutline" />
-            {{ cargandoImagenes ? 'Publicando...' : 'Publicar Subasta' }}
+            {{ cargandoImagenes ? 'Enviando...' : 'Enviar a Revisión' }}
           </button>
         </div>
 
         <div style="height: 80px" />
       </form>
     </ion-content>
+
+    <ion-toast
+      :is-open="toastVisible"
+      message="¡Producto enviado! Será revisado por el administrador antes de publicarse."
+      :duration="2000"
+      color="success"
+      position="top"
+      @didDismiss="toastVisible = false"
+    />
 
     <!-- Bottom Nav -->
     <div class="bottom-nav">
@@ -268,11 +306,11 @@
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
   IonButtons, IonMenuButton, IonButton, IonIcon,
-  IonSelect, IonSelectOption, IonDatetime
+  IonSelect, IonSelectOption, IonDatetime, IonToast
 } from '@ionic/vue'
 import {
   closeCircle, cloudUploadOutline, addCircleOutline, cameraOutline,
-  homeOutline, gridOutline, layersOutline,
+  documentOutline, homeOutline, gridOutline, layersOutline,
   searchOutline, notificationsOutline, personOutline
 } from 'ionicons/icons'
 import { ref, computed } from 'vue'
@@ -283,6 +321,8 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebas
 import { v4 as uuidv4 } from 'uuid'
 
 const router = useRouter()
+
+const toastVisible = ref(false)
 
 const categoriasList = [
   { value: 'Tecnología',            label: 'Tecnología',       icon: 'laptop-outline' },
@@ -300,6 +340,8 @@ const mostrarCalendarioCierre = ref(false)
 const cargandoImagenes = ref(false)
 const progresoSubida = ref(0)
 const imagenesPreview = ref([])
+const documentosArchivos = ref([])
+const documentosNombres = ref([])
 
 const horasDisponibles = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
 
@@ -382,6 +424,42 @@ const subirImagenes = async (userId, productoId) => {
   })
 }
 
+const cargarDocumentos = (event) => {
+  const archivos = Array.from(event.target.files)
+  if (!archivos.length) return
+  const espacioDisponible = 5 - documentosArchivos.value.length
+  archivos.slice(0, espacioDisponible).forEach(archivo => {
+    documentosArchivos.value.push(archivo)
+    documentosNombres.value.push(archivo.name)
+  })
+  event.target.value = ''
+}
+
+const eliminarDocumento = (index) => {
+  documentosArchivos.value.splice(index, 1)
+  documentosNombres.value.splice(index, 1)
+}
+
+const subirDocumentos = async (userId, productoId) => {
+  const archivos = documentosArchivos.value
+  if (!archivos.length) return []
+  const urls = []
+  for (const archivo of archivos) {
+    const ext = archivo.name.split('.').pop()
+    const nombre = `doc_${uuidv4()}.${ext}`
+    const fileRef = storageRef(storage, `productos/${userId}/${productoId}/${nombre}`)
+    const tarea = uploadBytesResumable(fileRef, archivo)
+    await new Promise((resolve, reject) => {
+      tarea.on('state_changed', null, reject, async () => {
+        const url = await getDownloadURL(tarea.snapshot.ref)
+        urls.push({ url, nombre: archivo.name, path: `productos/${userId}/${productoId}/${nombre}` })
+        resolve()
+      })
+    })
+  }
+  return urls
+}
+
 const resetForm = () => {
   producto.value = {
     nombre: '', categoria: '', nuevaCategoria: '', descripcion: '',
@@ -389,6 +467,8 @@ const resetForm = () => {
     fechaCierre: null, horaCierre: '', precioBase: null, precioVentaInmediata: null
   }
   imagenesPreview.value = []
+  documentosArchivos.value = []
+  documentosNombres.value = []
 }
 
 const cancelar = () => { resetForm(); router.push('/home') }
@@ -422,22 +502,25 @@ const crearProducto = async () => {
       fechaApertura: fmt(fAp),
       fechaCierre: fmt(fCi),
       creadoEn: new Date().toISOString(),
-      estado: 'Disponible',
+      estado: 'PendienteAprobacion',
       imagenes: []
     })
 
     const imagenes = await subirImagenes(auth.currentUser.uid, docRef.id)
-    await updateDoc(docRef, { imagenes })
+    const documentos = await subirDocumentos(auth.currentUser.uid, docRef.id)
+    await updateDoc(docRef, { imagenes, documentos })
 
     await addDoc(collection(db, 'notificaciones'), {
-      mensaje: `Nuevo producto publicado: ${producto.value.nombre}`,
+      mensaje: `Producto enviado a revisión: ${producto.value.nombre}`,
       timestamp: new Date().toISOString(),
       productoId: docRef.id,
-      userId: auth.currentUser.uid
+      userId: auth.currentUser.uid,
+      tipo: 'revision'
     })
 
     resetForm()
-    router.push('/mis-publicaciones')
+    toastVisible.value = true
+    setTimeout(() => router.push('/mis-publicaciones'), 2200)
   } catch (e) {
     console.error('Error al guardar producto:', e)
   } finally {
@@ -517,8 +600,11 @@ const crearProducto = async () => {
   background: #F9F9F9; border: 1.5px solid #eee;
   border-radius: 12px; padding: 4px 14px;
   --placeholder-color: #bbb;
+  --color: #111;
   width: 100%;
 }
+:global(.field-select::part(text)) { color: #111 !important; }
+:global(.field-select::part(placeholder)) { color: #bbb !important; }
 
 /* Fechas grid 2 cols */
 .fechas-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -656,6 +742,28 @@ const crearProducto = async () => {
   font-size: 0.7rem; color: #bbb;
   margin: 0 0 4px; text-align: center;
 }
+
+/* Documentos */
+.docs-desc { font-size: 0.75rem; color: #888; margin: 0 0 12px; line-height: 1.4; }
+.docs-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.doc-item {
+  display: flex; align-items: center; gap: 8px;
+  background: #F9F9F9; border: 1.5px solid #eee;
+  border-radius: 10px; padding: 10px 12px;
+}
+.doc-icon { font-size: 1rem; color: #F5A623; flex-shrink: 0; }
+.doc-nombre { font-size: 0.75rem; color: #333; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-remove { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1rem; padding: 0; display: flex; align-items: center; flex-shrink: 0; }
+.doc-upload-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 12px;
+  border: 2px dashed #e0e0e0; border-radius: 12px;
+  cursor: pointer; color: #888; font-size: 0.82rem; font-weight: 700;
+  margin-bottom: 8px; transition: border-color 0.2s;
+}
+.doc-upload-btn:active { border-color: #F5A623; color: #F5A623; }
+.doc-upload-btn ion-icon { font-size: 1.1rem; }
+.docs-hint { font-size: 0.68rem; color: #bbb; margin: 0; text-align: center; }
 
 /* Submit */
 .submit-wrap { margin-top: 4px; }

@@ -78,6 +78,27 @@
             </p>
           </transition>
 
+          <!-- Banner registro exitoso -->
+          <transition name="fade">
+            <div v-if="registroExitoso" class="verify-banner">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+                <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" fill="#F5A623"/>
+              </svg>
+              <span>Revisa tu correo y verifica tu cuenta antes de iniciar sesión.</span>
+            </div>
+          </transition>
+
+          <!-- Mantener sesión -->
+          <label class="remember-row">
+            <span class="remember-check" :class="{ 'remember-check--on': rememberMe }">
+              <svg v-if="rememberMe" width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13L9 17L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <input type="checkbox" v-model="rememberMe" style="display:none" />
+            <span class="remember-label">Mantener sesión abierta</span>
+          </label>
+
           <!-- Botón principal -->
           <button
             class="btn-login"
@@ -115,7 +136,7 @@
 import { IonPage, IonContent } from '@ionic/vue';
 import { ref } from 'vue';
 import { loginUser } from '@/services/authService';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 
 export default {
@@ -129,7 +150,10 @@ export default {
     const showPassword = ref(false);
     const isLoading    = ref(false);
     const showError    = ref(false);
-    const router       = useRouter();
+    const rememberMe      = ref(false);
+    const router          = useRouter();
+    const route           = useRoute();
+    const registroExitoso = ref(route.query.registered === '1');
 
     const togglePassword = () => {
       showPassword.value = !showPassword.value;
@@ -147,17 +171,10 @@ export default {
 
       isLoading.value = true;
       try {
-        const response = await loginUser(email.value, password.value);
-        console.log('🚀 Response completo:', JSON.stringify(response));
-        console.log('🚀 Rol:', response.rol);
+        const response = await loginUser(email.value, password.value, rememberMe.value);
 
         if (response.success) {
-          // El rol ya viene en la respuesta de loginUser
-          if (response.rol === 'admin') {
-            window.location.href = '/admin/dashboard';
-          } else {
-            window.location.href = '/home';
-          }
+          router.replace('/home');
         } else {
           showError.value    = true;
           errorMessage.value = response.resend
@@ -177,7 +194,7 @@ export default {
 
     return {
       email, password, errorMessage,
-      showPassword, isLoading, showError,
+      showPassword, isLoading, showError, rememberMe, registroExitoso,
       togglePassword, login,
       goToRegister, goToRecuperarContraseña
     };
@@ -416,5 +433,54 @@ export default {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* ── Verify banner ──────────────────────────────── */
+.verify-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #7a5500;
+  background: #fff8ec;
+  border: 1px solid #F5A623;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+/* ── Remember me ────────────────────────────────── */
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.remember-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1.5px solid #CCCCCC;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.remember-check--on {
+  background: #1A1D2E;
+  border-color: #1A1D2E;
+}
+
+.remember-label {
+  font-size: 13px;
+  color: #555;
 }
 </style>

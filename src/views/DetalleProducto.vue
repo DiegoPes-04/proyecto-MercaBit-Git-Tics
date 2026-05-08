@@ -27,10 +27,53 @@
         <div class="hero-badge" :class="subastaFinalizada ? 'badge-cerrada' : 'badge-activa'">
           {{ subastaFinalizada ? 'FINALIZADA' : 'EN SUBASTA' }}
         </div>
+
+        <!-- Botón flotante reporte -->
+        <button v-if="!subastaFinalizada && !esVendedor" class="report-fab" @click="reportModalOpen = true">
+          <ion-icon :icon="flagOutline" />
+          <span>Reportar</span>
+        </button>
+      </div>
+
+      <!-- Modal de reporte -->
+      <div class="report-overlay" v-if="reportModalOpen" @click.self="reportModalOpen = false">
+        <div class="report-sheet">
+          <div class="report-handle" />
+          <h3 class="report-title">Reportar Subasta</h3>
+          <p class="report-sub">Ayúdanos a mantener MercaBit seguro.</p>
+
+          <div class="motivos-list">
+            <button
+              v-for="m in motivos"
+              :key="m"
+              class="motivo-btn"
+              :class="{ selected: reportMotivo === m }"
+              @click="reportMotivo = m"
+            >
+              {{ m }}
+            </button>
+          </div>
+
+          <textarea
+            v-model="reportDescripcion"
+            class="report-textarea"
+            placeholder="Describe tu queja con más detalle (opcional)..."
+            rows="3"
+          />
+
+          <button class="report-submit-btn" @click="enviarReporte" :disabled="!reportMotivo || enviandoReporte">
+            {{ enviandoReporte ? 'Enviando...' : 'Enviar Reporte' }}
+          </button>
+          <button class="report-cancel-btn" @click="reportModalOpen = false">Cancelar</button>
+          <button class="report-soporte-btn" @click="irASoporte">
+            <ion-icon :icon="chatbubblesOutline" />
+            Hablar con soporte sobre esta subasta
+          </button>
+        </div>
       </div>
 
       <!-- Skeleton si carga -->
-      <div class="hero-skeleton" v-else>
+      <div class="hero-skeleton" v-if="!producto">
         <div class="skeleton-shine" />
       </div>
 
@@ -40,6 +83,7 @@
         <div class="title-section">
           <h1 class="product-title">{{ producto.nombre }}</h1>
           <span class="product-cat">{{ producto.categoria || 'Sin categoría' }}</span>
+          <span class="product-id">ID: {{ producto.id }}</span>
         </div>
 
         <!-- Vendedor clickeable -->
@@ -51,6 +95,18 @@
           <div class="vendedor-info-sm">
             <p class="vendedor-label-sm">PUBLICADO POR</p>
             <p class="vendedor-nombre-sm">{{ vendedor?.name || 'Vendedor' }}</p>
+            <div class="vendedor-rating" v-if="vendedor">
+              <ion-icon
+                v-for="s in 5"
+                :key="s"
+                :icon="s <= Math.round(vendedor.promedio || 0) ? star : starOutline"
+                class="vend-star"
+                :class="{ filled: s <= Math.round(vendedor.promedio || 0) }"
+              />
+              <span class="vend-promedio">
+                {{ vendedor.promedio ? vendedor.promedio.toFixed(1) : 'Sin reseñas' }}
+              </span>
+            </div>
           </div>
           <div class="vendedor-arrow">
             <ion-icon :icon="chevronForwardOutline" />
@@ -183,15 +239,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { doc, getDoc, onSnapshot, collection, addDoc, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, onSnapshot, collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '@/firebase/FirebaseConfig'
 import { getAuth } from 'firebase/auth'
 import { actualizarProducto, actualizarCamposProducto } from '@/services/productoService'
+import { syncServerTime, serverNow } from '@/composables/useServerTime'
 import { IonPage, IonContent, IonIcon } from '@ionic/vue'
 import {
   arrowBackOutline, timerOutline, addOutline,
   removeOutline, hammerOutline, lockClosedOutline, flashOutline,
-  chevronForwardOutline
+  chevronForwardOutline, star, starOutline, flagOutline, chatbubblesOutline
 } from 'ionicons/icons'
 import { Swiper, SwiperSlide } from 'swiper/vue'
 import 'swiper/css'
@@ -212,7 +269,7 @@ const tiempoRestante = ref('')
 const numeroOfertas = ref(0)
 
 // ── Timer dinámico 10 min ─────────────────────────────
-const timerDinamico = ref('10:00')
+const timerDinamico = ref('01:00')
 const timerActivo = ref(false)
 const tieneOfertas = ref(false)
 const subastaFinalizada = ref(false)
@@ -225,6 +282,60 @@ let unsubscribeProducto = null
 
 // ── Vendedor ──────────────────────────────────────────
 const vendedor = ref(null)
+
+// ── Reporte ───────────────────────────────────────────
+const reportModalOpen = ref(false)
+const reportMotivo = ref('')
+const reportDescripcion = ref('')
+const enviandoReporte = ref(false)
+const motivos = [
+  'Fraude o estafa',
+  'Producto falso',
+  'Precio engañoso',
+  'Vendedor sospechoso',
+  'Contenido inapropiado',
+  'Otro'
+]
+
+const irASoporte = () => {
+  reportModalOpen.value = false
+  router.push({
+    path: '/soporte',
+    query: {
+      productoId: route.params.id,
+      productoNombre: producto.value?.nombre || ''
+    }
+  })
+}
+
+const enviarReporte = async () => {
+  if (!reportMotivo.value || enviandoReporte.value) return
+  const auth = getAuth()
+  const user = auth.currentUser
+  if (!user) return
+  try {
+    enviandoReporte.value = true
+    await addDoc(collection(db, 'reportes'), {
+      motivo: reportMotivo.value,
+      descripcion: reportDescripcion.value.trim(),
+      denuncianteId: user.uid,
+      denunciadoId: producto.value?.userId || '',
+      productoId: producto.value?.id || String(route.params.id),
+      productoNombre: producto.value?.nombre || '',
+      estado: 'pendiente',
+      fecha: serverTimestamp()
+    })
+    reportModalOpen.value = false
+    reportMotivo.value = ''
+    reportDescripcion.value = ''
+    alert('Reporte enviado. Nuestro equipo lo revisará pronto.')
+  } catch (e) {
+    console.error(e)
+    alert('Error al enviar el reporte.')
+  } finally {
+    enviandoReporte.value = false
+  }
+}
 
 // ── Rol del usuario actual ────────────────────────────
 const currentUserId = ref(null)
@@ -241,12 +352,15 @@ onMounted(() => {
   const auth = getAuth()
   currentUserId.value = auth.currentUser?.uid || null
 
+  // Sincronizar reloj con servidor (offset client-server)
+  syncServerTime()
+
   // Escuchar cambios en tiempo real
   unsubscribeProducto = onSnapshot(doc(db, 'products', id), async (docSnap) => {
     if (!docSnap.exists()) return
 
     const data = docSnap.data()
-    producto.value = data
+    producto.value = { id: docSnap.id, ...data }
     ofertaSugerida.value = Number(data.precioBase || 0) + Number(incremento.value)
 
     // Cargar datos del vendedor si no los tenemos aún
@@ -300,8 +414,8 @@ const iniciarTimerDinamico = (ultimaOfertaAt) => {
 
   const calcular = () => {
     const ultima = ultimaOfertaAt?.toDate ? ultimaOfertaAt.toDate() : new Date(ultimaOfertaAt)
-    const expira = new Date(ultima.getTime() + 1 * 60 * 1000) // PRUEBA: 1 min (cambiar a 10 en producción)
-    const diff = expira - new Date()
+    const expiraMs = ultima.getTime() + 60 * 1000
+    const diff = expiraMs - serverNow()
 
     if (diff <= 0) {
       timerDinamico.value = '00:00'
@@ -315,7 +429,7 @@ const iniciarTimerDinamico = (ultimaOfertaAt) => {
     const m = Math.floor(diff / 60000)
     const s = Math.floor((diff % 60000) / 1000)
     timerDinamico.value = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    esUrgente.value = diff <= 2 * 60 * 1000 // últimos 2 minutos
+    esUrgente.value = diff <= 20 * 1000 // últimos 20 segundos
   }
 
   calcular()
@@ -474,7 +588,8 @@ const CrearOferta = async () => {
 
 .title-section { background: #fff; padding: 18px 20px 16px; margin-bottom: 10px; }
 .product-title { font-size: 1.3rem; font-weight: 900; color: #111; margin: 0 0 4px; }
-.product-cat { font-size: 0.75rem; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.product-cat { font-size: 0.75rem; color: #aaa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 4px; }
+.product-id { font-size: 0.62rem; color: #ccc; font-weight: 500; font-family: monospace; }
 
 /* ── Countdown card ────────────────────────────────── */
 .countdown-card {
@@ -586,6 +701,11 @@ const CrearOferta = async () => {
 
 .vendedor-arrow { color: #ccc; font-size: 1rem; }
 
+.vendedor-rating { display: flex; align-items: center; gap: 2px; margin-top: 4px; }
+.vend-star { font-size: 0.65rem; color: #ddd; }
+.vend-star.filled { color: #F5A623; }
+.vend-promedio { font-size: 0.65rem; font-weight: 700; color: #aaa; margin-left: 3px; }
+
 /* ── BuyNow ────────────────────────────────────────── */
 .buynow-alert {
   background: #FFF8EE;
@@ -636,4 +756,77 @@ const CrearOferta = async () => {
   border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Botón flotante reporte ────────────────────────── */
+.report-fab {
+  position: absolute; top: 54px; right: 16px;
+  background: rgba(229,57,53,0.9); backdrop-filter: blur(4px);
+  border: none; border-radius: 20px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 10px 5px 8px;
+  cursor: pointer; z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  -webkit-tap-highlight-color: transparent;
+}
+.report-fab ion-icon { font-size: 0.9rem; color: #fff; }
+.report-fab span { font-size: 0.65rem; font-weight: 800; color: #fff; letter-spacing: 0.04em; }
+.report-fab:active { opacity: 0.85; transform: scale(0.97); }
+
+/* ── Modal reporte ─────────────────────────────────── */
+.report-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 1000; display: flex; align-items: flex-end;
+}
+.report-sheet {
+  background: #fff; border-radius: 24px 24px 0 0;
+  padding: 12px 20px 36px; width: 100%;
+  animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.report-handle {
+  width: 40px; height: 4px; background: #E0E0E0;
+  border-radius: 2px; margin: 0 auto 20px;
+}
+.report-title { font-size: 1.1rem; font-weight: 900; color: #111; margin: 0 0 4px; }
+.report-sub { font-size: 0.78rem; color: #aaa; margin: 0 0 20px; }
+
+.motivos-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.motivo-btn {
+  padding: 8px 14px; border-radius: 20px;
+  border: 1.5px solid #eee; background: #F9F9F9;
+  font-size: 0.78rem; font-weight: 600; color: #555;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: all 0.15s;
+}
+.motivo-btn.selected { border-color: #E53935; background: #FFF0F0; color: #E53935; font-weight: 700; }
+
+.report-textarea {
+  width: 100%; border: 1.5px solid #eee; border-radius: 14px;
+  padding: 12px 14px; font-size: 0.85rem; color: #111;
+  background: #F9F9F9; outline: none; resize: none;
+  font-family: inherit; margin-bottom: 16px; box-sizing: border-box;
+}
+.report-textarea:focus { border-color: #E53935; }
+
+.report-submit-btn {
+  width: 100%; padding: 15px; background: #E53935; color: #fff;
+  border: none; border-radius: 14px; font-size: 0.92rem; font-weight: 800;
+  cursor: pointer; margin-bottom: 10px;
+}
+.report-submit-btn:disabled { background: #ddd; cursor: not-allowed; }
+
+.report-cancel-btn {
+  width: 100%; padding: 13px; background: #F5F5F5; color: #777;
+  border: none; border-radius: 14px; font-size: 0.88rem; font-weight: 700;
+  cursor: pointer; margin-bottom: 10px;
+}
+
+.report-soporte-btn {
+  width: 100%; padding: 12px; background: none; color: #4A90D9;
+  border: 1.5px solid #4A90D9; border-radius: 14px;
+  font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.report-soporte-btn ion-icon { font-size: 1rem; }
 </style>

@@ -1,6 +1,7 @@
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const { getAuth: adminAuth } = require("firebase-admin/auth");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -49,13 +50,28 @@ exports.actualizarEstadoProductos = onSchedule('* * * * *', async () => {
 // HELPER: cerrar subasta y notificar
 // ─────────────────────────────────────────────────────────────────────────────
 async function cerrarSubasta(docSnapshot, productoId, motivo) {
-  const data = docSnapshot.data();
-
-  await docSnapshot.ref.update({
-    estado: 'Finalizada',
-    motivoCierre: motivo,
-    fechaCierreReal: new Date().toISOString()
-  });
+  // Transacción atómica: solo cierra si sigue en Disponible (evita doble cierre)
+  let data;
+  try {
+    await db.runTransaction(async (tx) => {
+      const fresh = await tx.get(docSnapshot.ref);
+      if (!fresh.exists || fresh.data().estado !== 'Disponible') {
+        throw new Error('ya_cerrada');
+      }
+      data = fresh.data();
+      tx.update(docSnapshot.ref, {
+        estado: 'Finalizada',
+        motivoCierre: motivo,
+        fechaCierreReal: new Date().toISOString()
+      });
+    });
+  } catch (e) {
+    if (e.message === 'ya_cerrada') {
+      logger.info(`Producto ${productoId} ya estaba cerrado, se omite.`);
+      return;
+    }
+    throw e;
+  }
 
   logger.info(`Producto ${productoId} cerrado por: ${motivo}`);
 
@@ -306,10 +322,7 @@ exports.finalizarProductoYActualizarSaldo = onDocumentUpdated("products/{product
   const producto = event.data?.after.data();
   const productoId = event.params.productoId;
 
-  // Solo cuando cambia A Finalizada (evitar loops)
-  if (antes?.estado === 'Finalizada' || producto?.estado !== 'Finalizada') {
-    return null;
-  }
+  if (antes?.estado === 'Finalizada' || producto?.estado !== 'Finalizada') return null;
 
   const ofertaSnapshot = await db.collection('ofertas')
     .where('producto_id', '==', productoId)
@@ -325,61 +338,125 @@ exports.finalizarProductoYActualizarSaldo = onDocumentUpdated("products/{product
   const oferta = ofertaSnapshot.docs[0].data();
   const compradorId = oferta.usuario_id;
   const cantidad = oferta.cantidad;
+  const precioFinal = Number(cantidad).toLocaleString('es-CO');
 
-  const compradorSnap = await db.collection('users').doc(compradorId).get();
-  const vendedorSnap = await db.collection('users').doc(producto.userId).get();
-
-  if (!compradorSnap.exists || !vendedorSnap.exists) {
-    logger.warn('No se encontraron datos del comprador o vendedor');
-    return null;
-  }
-
-  const comprador = compradorSnap.data();
-  const vendedor = vendedorSnap.data();
-
-  if (comprador.saldo < cantidad) {
-    logger.warn('Saldo insuficiente del comprador');
-    await db.collection('notificaciones').add({
-      userId: compradorId,
-      tipo: 'saldo_insuficiente',
-      titulo: 'Saldo insuficiente',
-      mensaje: `No pudimos procesar tu pago para "${producto.nombre}". Por favor recarga tu saldo.`,
-      productoId,
-      timestamp: new Date().toISOString(),
-      leida: false
-    });
-    return null;
-  }
-
-  const batch = db.batch();
-
-  batch.update(db.collection('users').doc(compradorId), {
-    saldo: comprador.saldo - cantidad
-  });
-  batch.update(db.collection('users').doc(producto.userId), {
-    saldo: vendedor.saldo + cantidad
-  });
-  batch.update(ofertaSnapshot.docs[0].ref, { estado: 'finalizada' });
-
-  // Crear registro de compra
-  const compraRef = db.collection('compras').doc();
-  batch.set(compraRef, {
-    userId: compradorId,
+  // Notificar al vendedor que el ganador tiene pendiente el pago
+  await db.collection('notificaciones').add({
+    userId: producto.userId,
+    tipo: 'pago_pendiente',
+    titulo: '⏳ Pago en proceso',
+    mensaje: `El ganador de "${producto.nombre}" tiene 24 horas para completar el pago de $${precioFinal} COP.`,
     productoId,
-    precioTotal: cantidad,
-    fechaCompra: FieldValue.serverTimestamp(),
-    estado: 'En proceso',
-    vendedorId: producto.userId
+    productoNombre: producto.nombre,
+    compradorId,
+    timestamp: new Date().toISOString(),
+    leida: false
   });
-
-  try {
-    await batch.commit();
-    logger.info(`Saldo transferido — comprador: ${compradorId}, vendedor: ${producto.userId}`);
-  } catch (error) {
-    logger.error("Error en batch de saldo:", error);
-  }
 
   return null;
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALLABLE: comprador realiza el pago manualmente
+// ─────────────────────────────────────────────────────────────────────────────
+exports.realizarPago = onRequest({ cors: true }, async (req, res) => {
+  // Verificar auth token manualmente
+  const idToken = (req.headers.authorization || '').replace('Bearer ', '');
+  if (!idToken) { res.status(401).json({ success: false, error: 'No autenticado' }); return; }
+
+  let compradorId;
+  try {
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    compradorId = decoded.uid;
+  } catch (e) {
+    res.status(401).json({ success: false, error: 'Token inválido' });
+    return;
+  }
+
+  const { productoId } = req.body;
+  if (!productoId) { res.status(400).json({ success: false, error: 'Falta productoId' }); return; }
+
+  try {
+    const productoSnap = await db.collection('products').doc(productoId).get();
+    if (!productoSnap.exists) { res.status(404).json({ success: false, error: 'Producto no encontrado' }); return; }
+    const producto = productoSnap.data();
+    const vendedorId = producto.vendedorId || producto.userId;
+
+    if (producto.estado !== 'Finalizada') { res.status(400).json({ success: false, error: 'Subasta no finalizada' }); return; }
+
+    // Idempotencia
+    const compraExistente = await db.collection('compras')
+      .where('userId', '==', compradorId)
+      .where('productoId', '==', productoId)
+      .get();
+    if (!compraExistente.empty) {
+      res.json({ success: true, compraId: compraExistente.docs[0].id, yaRealizado: true });
+      return;
+    }
+
+    const ofertaSnapshot = await db.collection('ofertas')
+      .where('producto_id', '==', productoId)
+      .where('es_mas_alta', '==', true)
+      .where('estado', '==', 'activa')
+      .get();
+    if (ofertaSnapshot.empty) { res.status(404).json({ success: false, error: 'Sin oferta ganadora' }); return; }
+
+    const oferta = ofertaSnapshot.docs[0].data();
+    if (oferta.usuario_id !== compradorId) { res.status(403).json({ success: false, error: 'No eres el ganador' }); return; }
+
+    const cantidad = oferta.cantidad;
+
+    // ── Comisión por categoría ────────────────────────────────────────────
+    const COMISIONES = {
+      'Inmuebles': 0.03, 'Autos y Motos': 0.025, 'Industrial y Maquinaria': 0.02,
+      'Tecnología': 0.015, 'Ropa': 0.01, 'Hogar y Decoracion': 0.005,
+    };
+    const comisionRate = COMISIONES[producto.categoria] ?? 0.01;
+    const comision = Math.round(cantidad * comisionRate);
+    const totalConComision = cantidad + comision;
+
+    const compradorSnap = await db.collection('users').doc(compradorId).get();
+    if (!compradorSnap.exists) { res.status(404).json({ success: false, error: 'Comprador no encontrado' }); return; }
+
+    const comprador = compradorSnap.data();
+    const precioFinal = Number(totalConComision).toLocaleString('es-CO');
+    const precioOferta = Number(cantidad).toLocaleString('es-CO');
+
+    // ── Saldo insuficiente ────────────────────────────────────────────────
+    if (comprador.saldo < totalConComision) {
+      logger.warn(`Saldo insuficiente — comprador: ${compradorId}`);
+      try { await db.collection('notificaciones').add({ userId: compradorId, tipo: 'saldo_insuficiente', titulo: '❌ Saldo insuficiente', mensaje: `No pudimos procesar tu pago de $${precioFinal} COP (incluye ${(comisionRate*100)}% comisión) para "${producto.nombre}". Por favor recarga tu saldo.`, productoId, productoNombre: producto.nombre, timestamp: new Date().toISOString(), leida: false }); } catch (e) { logger.error('Error notif comprador:', e); }
+      try { await db.collection('notificaciones').add({ userId: vendedorId, tipo: 'pago_fallido', titulo: '⚠️ Pago no completado', mensaje: `Un comprador no pudo completar el pago de $${precioFinal} COP por "${producto.nombre}" por saldo insuficiente. Puedes reportar el incumplimiento.`, productoId, productoNombre: producto.nombre, compradorId, timestamp: new Date().toISOString(), leida: false }); } catch (e) { logger.error('Error notif vendedor:', e); }
+      res.json({ success: false, reason: 'saldo_insuficiente' });
+      return;
+    }
+
+    // ── Pago exitoso ──────────────────────────────────────────────────────
+    const vendedorSnap = await db.collection('users').doc(vendedorId).get();
+    if (!vendedorSnap.exists) { res.status(404).json({ success: false, error: 'Vendedor no encontrado' }); return; }
+    const vendedor = vendedorSnap.data();
+
+    const batch = db.batch();
+    // Comprador paga precio + comisión; vendedor recibe solo precio de oferta
+    batch.update(db.collection('users').doc(compradorId), { saldo: comprador.saldo - totalConComision });
+    batch.update(db.collection('users').doc(vendedorId), { saldo: vendedor.saldo + cantidad });
+    batch.update(ofertaSnapshot.docs[0].ref, { estado: 'finalizada' });
+
+    const compraRef = db.collection('compras').doc();
+    batch.set(compraRef, { userId: compradorId, productoId, productoNombre: producto.nombre, precioOferta: cantidad, comision, comisionRate, precioTotal: totalConComision, fechaCompra: FieldValue.serverTimestamp(), estado: 'pagado', vendedorId });
+
+    await batch.commit();
+    logger.info(`Pago procesado — comprador: ${compradorId}, vendedor: ${vendedorId}, comisión: ${comision}`);
+
+    try { await db.collection('notificaciones').add({ userId: vendedorId, tipo: 'pago_recibido', titulo: '💰 Pago recibido', mensaje: `Recibiste $${precioOferta} COP por "${producto.nombre}". El pedido está en camino al comprador.`, productoId, timestamp: new Date().toISOString(), leida: false }); } catch (e) { logger.error('Error notif vendedor recibido:', e); }
+    try { await db.collection('notificaciones').add({ userId: compradorId, tipo: 'pago_procesado', titulo: '✅ Pago procesado', mensaje: `Tu pago de $${precioFinal} COP por "${producto.nombre}" fue exitoso (incluye ${(comisionRate*100)}% comisión MercaBit). ¡Pronto recibirás tu pedido!`, productoId, compraId: compraRef.id, timestamp: new Date().toISOString(), leida: false }); } catch (e) { logger.error('Error notif comprador procesado:', e); }
+
+    res.json({ success: true, compraId: compraRef.id });
+
+  } catch (error) {
+    logger.error('Error en realizarPago:', error);
+    res.status(500).json({ success: false, error: 'Error interno al procesar el pago' });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
